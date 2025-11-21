@@ -107,7 +107,7 @@ def apply(config, header, path, output, include_extension, exclude_path, dry_run
 @click.option('--output', type=str, help='Output directory for report files (default: none)')
 @click.option('--include-extension', multiple=True, help='File extensions to include (e.g., .py, .js). Can be specified multiple times.')
 @click.option('--exclude-path', multiple=True, help='Paths/patterns to exclude (e.g., node_modules). Can be specified multiple times.')
-@click.option('--dry-run', is_flag=True, help='Preview check results without performing actions')
+@click.option('--dry-run', is_flag=True, help='Preview results without modifying files')
 @click.option('--strict', is_flag=True, help='Fail on any missing or incorrect headers')
 def check(config, header, path, output, include_extension, exclude_path, dry_run, strict):
     """Check source files for correct license headers."""
