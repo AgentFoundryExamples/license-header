@@ -4,8 +4,8 @@ Tests for CLI module.
 
 import json
 import os
-import pytest
 import tempfile
+import pytest
 from pathlib import Path
 from click.testing import CliRunner
 

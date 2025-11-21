@@ -155,7 +155,6 @@ def load_header_content(header_file: str, repo_root: Path) -> str:
         raise click.ClickException(f"Error reading header file {header_path}: {e}")
 
 
-
 def validate_extensions(extensions: List[str]) -> None:
     """
     Validate file extensions format.
