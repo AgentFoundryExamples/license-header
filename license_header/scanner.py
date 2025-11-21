@@ -72,6 +72,26 @@ def is_binary_file(file_path: Path) -> bool:
         return True
 
 
+def _try_directory_patterns(rel_path: Path, pattern: str) -> bool:
+    """
+    Try matching a pattern as a directory by adding directory wildcards.
+    
+    Args:
+        rel_path: Path relative to repository root
+        pattern: Pattern to try
+        
+    Returns:
+        True if any directory variant matches, False otherwise
+    """
+    # Try pattern/** for recursive directory match
+    if rel_path.match(pattern + '/**'):
+        return True
+    # Try pattern/* for single-level directory match
+    if rel_path.match(pattern + '/*'):
+        return True
+    return False
+
+
 def _matches_glob_pattern(rel_path: Path, pattern: str) -> bool:
     """
     Check if a relative path matches a glob pattern.
@@ -93,20 +113,15 @@ def _matches_glob_pattern(rel_path: Path, pattern: str) -> bool:
     # For patterns that don't end with wildcards, also try matching as directory patterns
     # This allows patterns like 'vendor' or '**/vendor' to match 'vendor/file.js'
     if not pattern.endswith('*'):
-        # Try pattern/** for recursive directory match
-        if rel_path.match(pattern + '/**'):
-            return True
-        # Try pattern/* for single-level directory match
-        if rel_path.match(pattern + '/*'):
+        # Try the pattern as a directory
+        if _try_directory_patterns(rel_path, pattern):
             return True
         
         # For patterns starting with **, also try without the ** prefix
         # This handles cases like '**/vendor' matching 'vendor/file.js' at root
         if pattern.startswith('**/'):
             stripped_pattern = pattern[3:]  # Remove '**/
-            if rel_path.match(stripped_pattern + '/**'):
-                return True
-            if rel_path.match(stripped_pattern + '/*'):
+            if _try_directory_patterns(rel_path, stripped_pattern):
                 return True
     
     return False
