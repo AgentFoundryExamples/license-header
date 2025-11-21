@@ -271,10 +271,66 @@ The tool enforces security restrictions on file paths:
 ### Edge Cases
 
 - **Missing header file**: Tool exits with descriptive error message and non-zero exit code
-- **Header without trailing newline**: File content is read exactly as-is without modification
+- **Header without trailing newline**: Header content is normalized to ensure exactly one trailing newline for consistent behavior
 - **Invalid JSON config**: Tool exits with parse error details
 - **Unknown file extensions**: Logged as warnings but don't prevent execution
 - **Invalid exclude patterns**: Logged as warnings but don't prevent execution
+
+## Header Detection and Application
+
+The tool uses intelligent header detection to ensure idempotent and safe header insertion.
+
+### Header Detection Heuristics
+
+The tool determines if a file already has the required header by:
+
+1. **Shebang Awareness**: If a file starts with a shebang (`#!`), the header check begins after the shebang line
+2. **Exact Match**: The header must match exactly (character-for-character) with the configured header text
+3. **Whitespace Normalization**: Headers are normalized to ensure exactly one trailing newline for consistent comparison
+4. **Leading Whitespace Tolerance**: The tool skips leading blank lines when checking for headers
+
+### Header Insertion Behavior
+
+When applying headers to files:
+
+1. **Shebang Preservation**: If a file starts with `#!/...`, the header is inserted immediately after the shebang line
+2. **Start-of-File Insertion**: For files without shebangs, the header is inserted at the very beginning
+3. **Atomic Writes**: Files are modified atomically using a temporary file and rename operation to prevent partial writes
+4. **Encoding Preservation**: BOM (Byte Order Mark) is detected and preserved for files with UTF-8 BOM, UTF-16, or UTF-32 encoding
+5. **Permission Preservation**: Original file permissions are maintained when modifying files in-place
+
+### Idempotency Guarantees
+
+The tool provides strong idempotency guarantees:
+
+- **Byte-Identical Results**: Files that already have the correct header remain byte-identical after repeated runs
+- **No Double Insertion**: The header detection prevents adding the same header multiple times
+- **Deterministic Output**: The same input always produces the same output, regardless of how many times you run the tool
+- **Safe for Repeated Runs**: You can safely run `license-header apply` multiple times without corrupting files
+
+### Example Workflow
+
+```bash
+# First run - adds headers to files without them
+$ license-header apply
+Modified 10 file(s)
+
+# Second run - no changes needed
+$ license-header apply
+Already compliant: 10
+Modified files: 0
+```
+
+### Edge Case Handling
+
+The tool handles several edge cases:
+
+- **BOM Files**: UTF-8 BOM and other BOMs are detected and preserved
+- **Shebang Files**: Scripts with shebangs get headers inserted after the shebang line
+- **Large Files**: Files larger than 10MB are handled efficiently without loading entire content into memory multiple times
+- **Partial Header Matches**: Files with partial matches are treated as missing headers and get the full header added
+- **Read-Only Directories**: Permission errors are surfaced with clear error messages
+- **Multiline Headers**: Headers spanning multiple lines are fully supported
 
 ## Getting Help
 
@@ -338,8 +394,8 @@ This project is in early development. Configuration loading, CLI options, and re
 - ✅ File extension filtering and exclude pattern matching
 - ✅ Binary file detection
 - ✅ Symlink handling and circular reference detection
-- ⏳ Header scanning logic (planned)
-- ⏳ Header application logic (planned)
+- ✅ Header detection and insertion logic
+- ✅ Idempotent header application with shebang preservation
 
 
 
