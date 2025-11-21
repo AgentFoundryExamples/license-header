@@ -72,6 +72,46 @@ def is_binary_file(file_path: Path) -> bool:
         return True
 
 
+def _matches_glob_pattern(rel_path: Path, pattern: str) -> bool:
+    """
+    Check if a relative path matches a glob pattern.
+    
+    Handles both explicit glob patterns and directory-based patterns by trying
+    multiple variations.
+    
+    Args:
+        rel_path: Path relative to repository root
+        pattern: Glob pattern to match against
+        
+    Returns:
+        True if the path matches the pattern, False otherwise
+    """
+    # Direct match
+    if rel_path.match(pattern):
+        return True
+    
+    # For patterns that don't end with wildcards, also try matching as directory patterns
+    # This allows patterns like 'vendor' or '**/vendor' to match 'vendor/file.js'
+    if not pattern.endswith('*'):
+        # Try pattern/** for recursive directory match
+        if rel_path.match(pattern + '/**'):
+            return True
+        # Try pattern/* for single-level directory match
+        if rel_path.match(pattern + '/*'):
+            return True
+        
+        # For patterns starting with **, also try without the ** prefix
+        # This handles cases like '**/vendor' matching 'vendor/file.js' at root
+        if pattern.startswith('**/'):
+            stripped_pattern = pattern[3:]  # Remove '**/
+            if rel_path.match(stripped_pattern + '/**'):
+                return True
+            if rel_path.match(stripped_pattern + '/*'):
+                return True
+    
+    return False
+
+
 def matches_exclude_pattern(path: Path, repo_root: Path, exclude_patterns: List[str]) -> bool:
     """
     Check if a path matches any exclude pattern.
@@ -94,29 +134,9 @@ def matches_exclude_pattern(path: Path, repo_root: Path, exclude_patterns: List[
         
         # Check each pattern
         for pattern in exclude_patterns:
-            # First, try glob matching using PurePath.match()
-            # This handles patterns like '*.pyc', 'generated/*.py', '**/vendor'
-            if rel_path.match(pattern):
+            # Try glob pattern matching
+            if _matches_glob_pattern(rel_path, pattern):
                 return True
-            
-            # For patterns that don't end with wildcards, also try matching as directory patterns
-            # This allows patterns like 'vendor' or '**/vendor' to match 'vendor/file.js'
-            if not pattern.endswith('*'):
-                # Try pattern/** for recursive directory match
-                if rel_path.match(pattern + '/**'):
-                    return True
-                # Try pattern/* for single-level directory match
-                if rel_path.match(pattern + '/*'):
-                    return True
-                
-                # For patterns starting with **, also try without the ** prefix
-                # This handles cases like '**/vendor' matching 'vendor/file.js' at root
-                if pattern.startswith('**/'):
-                    stripped_pattern = pattern[3:]  # Remove '**/
-                    if rel_path.match(stripped_pattern + '/**'):
-                        return True
-                    if rel_path.match(stripped_pattern + '/*'):
-                        return True
             
             # Also check if pattern is a simple directory name that appears in the path
             # This ensures backward compatibility with simple patterns like 'node_modules'
