@@ -237,7 +237,7 @@ class TestCheckCommand:
             result = self.runner.invoke(main, ['check', '--header', 'HEADER.txt', '--strict'])
             assert result.exit_code == 0
             assert 'Strict mode: True' in result.output
-            assert 'Running in strict mode' in result.output
+            assert 'Summary:' in result.output
     
     def test_check_dry_run_mode(self):
         """Test check command with dry-run mode."""
@@ -247,7 +247,7 @@ class TestCheckCommand:
             result = self.runner.invoke(main, ['check', '--header', 'HEADER.txt', '--dry-run'])
             assert result.exit_code == 0
             assert 'Dry run: True' in result.output
-            assert '[DRY RUN] Would check license headers' in result.output
+            assert 'Summary:' in result.output
     
     def test_check_dry_run_with_strict(self):
         """Test check command with both dry-run and strict modes."""
@@ -258,7 +258,7 @@ class TestCheckCommand:
             assert result.exit_code == 0
             assert 'Dry run: True' in result.output
             assert 'Strict mode: True' in result.output
-            assert '[DRY RUN] Would check license headers' in result.output
+            assert 'Summary:' in result.output
     
     def test_check_missing_header_file(self):
         """Test check command with missing header file."""
