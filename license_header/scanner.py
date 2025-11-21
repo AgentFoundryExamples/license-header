@@ -14,7 +14,8 @@ from typing import List, Set
 logger = logging.getLogger(__name__)
 
 # Default directories to exclude from scanning
-DEFAULT_EXCLUDE_DIRS = {
+# These match the defaults in config.py
+DEFAULT_EXCLUDE_DIRS = [
     '.git',
     '.venv',
     'venv',
@@ -23,7 +24,7 @@ DEFAULT_EXCLUDE_DIRS = {
     'node_modules',
     'dist',
     'build',
-}
+]
 
 
 @dataclass
@@ -86,17 +87,12 @@ def matches_exclude_pattern(path: Path, repo_root: Path, exclude_patterns: List[
     try:
         # Get path relative to repo root for matching
         rel_path = path.relative_to(repo_root)
-        rel_path_str = str(rel_path)
         
         # Check each pattern
         for pattern in exclude_patterns:
-            # Simple pattern matching - check if pattern appears in path
-            # This handles both directory names and path segments
+            # Check if pattern matches any part of the path
+            # This allows patterns to match directory names anywhere in the path
             if pattern in rel_path.parts:
-                return True
-            # Also check if pattern matches the relative path string
-            # This allows for more flexible patterns
-            if pattern in rel_path_str:
                 return True
                 
     except ValueError:
@@ -167,7 +163,7 @@ def scan_repository(
     result = ScanResult()
     
     # Combine default excludes with user patterns
-    all_exclude_patterns = list(DEFAULT_EXCLUDE_DIRS) + exclude_patterns
+    all_exclude_patterns = DEFAULT_EXCLUDE_DIRS + exclude_patterns
     
     # Track visited directories to detect circular symlinks
     visited_dirs: Set[Path] = set()

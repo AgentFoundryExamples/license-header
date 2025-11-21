@@ -24,7 +24,7 @@ class Config:
     
     # Optional configuration with defaults
     include_extensions: List[str] = field(default_factory=lambda: ['.py', '.js', '.ts', '.java', '.cpp', '.c', '.h'])
-    exclude_paths: List[str] = field(default_factory=lambda: ['node_modules', '.git', '__pycache__', 'venv', 'env', '.venv'])
+    exclude_paths: List[str] = field(default_factory=lambda: ['node_modules', '.git', '__pycache__', 'venv', 'env', '.venv', 'dist', 'build'])
     output_dir: Optional[str] = None
     dry_run: bool = False
     mode: str = 'apply'  # 'apply' or 'check'
@@ -216,7 +216,7 @@ def merge_config(
     # Start with defaults from Config dataclass
     config_data = {
         'include_extensions': ['.py', '.js', '.ts', '.java', '.cpp', '.c', '.h'],
-        'exclude_paths': ['node_modules', '.git', '__pycache__', 'venv', 'env', '.venv'],
+        'exclude_paths': ['node_modules', '.git', '__pycache__', 'venv', 'env', '.venv', 'dist', 'build'],
         'output_dir': None,
         'dry_run': False,
         'mode': 'apply',
