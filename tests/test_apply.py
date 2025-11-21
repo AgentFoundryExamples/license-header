@@ -665,3 +665,38 @@ class TestApplyHeaders:
         assert len(result.already_compliant) == 1
         assert result.modified_files[0].name == 'needs_header.py'
         assert result.already_compliant[0].name == 'has_header.py'
+    
+    def test_apply_headers_handles_decode_errors(self, tmp_path):
+        """Test that UnicodeDecodeError doesn't crash the entire operation."""
+        # Create header file
+        header_file = tmp_path / "HEADER.txt"
+        header_file.write_text("# Copyright 2025\n")
+        
+        # Create a good file
+        good_file = tmp_path / "good.py"
+        good_file.write_text("print('hello')\n")
+        
+        # Create a file with invalid UTF-8 encoding (e.g., latin-1)
+        bad_file = tmp_path / "bad.py"
+        with open(bad_file, 'wb') as f:
+            # Write latin-1 encoded text that will fail UTF-8 decoding
+            f.write(b'# This has invalid UTF-8: \xe9\n')
+            f.write(b'print("test")\n')
+        
+        # Configure
+        cli_args = {'header': str(header_file)}
+        config = merge_config(cli_args, repo_root=tmp_path)
+        
+        # Apply headers - should not crash
+        result = apply_headers(config)
+        
+        # Good file should be modified
+        assert len(result.modified_files) == 1
+        assert result.modified_files[0].name == 'good.py'
+        
+        # Bad file should be in failed list
+        assert len(result.failed_files) == 1
+        assert result.failed_files[0].name == 'bad.py'
+        
+        # Verify good file was modified correctly
+        assert "# Copyright 2025" in good_file.read_text()
