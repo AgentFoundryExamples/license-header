@@ -72,6 +72,10 @@ def is_binary_file(file_path: Path) -> bool:
         return True
 
 
+# Recursive wildcard prefix used in glob patterns
+_RECURSIVE_PREFIX = '**/'
+
+
 def _try_directory_patterns(rel_path: Path, pattern: str) -> bool:
     """
     Try matching a pattern as a directory by adding directory wildcards.
@@ -83,12 +87,10 @@ def _try_directory_patterns(rel_path: Path, pattern: str) -> bool:
     Returns:
         True if any directory variant matches, False otherwise
     """
-    # Try pattern/** for recursive directory match
-    if rel_path.match(pattern + '/**'):
-        return True
-    # Try pattern/* for single-level directory match
-    if rel_path.match(pattern + '/*'):
-        return True
+    # Try both recursive and single-level directory patterns
+    for suffix in ('/**', '/*'):
+        if rel_path.match(pattern + suffix):
+            return True
     return False
 
 
@@ -119,8 +121,8 @@ def _matches_glob_pattern(rel_path: Path, pattern: str) -> bool:
         
         # For patterns starting with **, also try without the ** prefix
         # This handles cases like '**/vendor' matching 'vendor/file.js' at root
-        if pattern.startswith('**/'):
-            stripped_pattern = pattern[3:]  # Remove '**/'
+        if pattern.startswith(_RECURSIVE_PREFIX):
+            stripped_pattern = pattern[len(_RECURSIVE_PREFIX):]
             if _try_directory_patterns(rel_path, stripped_pattern):
                 return True
     
