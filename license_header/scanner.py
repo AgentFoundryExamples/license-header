@@ -120,6 +120,10 @@ def matches_exclude_pattern(path: Path, repo_root: Path, exclude_patterns: List[
     - Simple directory names (e.g., 'node_modules') - matches if directory appears anywhere in path
     - Glob patterns (e.g., '*.pyc', 'generated/*.py', '**/vendor') - uses glob semantics
     
+    Both glob and simple directory matching are attempted for each pattern. A path is excluded
+    if it matches either check, so patterns like 'vendor' will match both as a glob and as a
+    simple directory name.
+    
     Args:
         path: Path to check (absolute)
         repo_root: Repository root path
