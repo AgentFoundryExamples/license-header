@@ -588,8 +588,6 @@ class TestScanRepository:
     
     def test_relative_root_path(self, tmp_path):
         """Test that scanning works with relative root paths."""
-        import os
-        
         # Create a subdirectory with a file
         (tmp_path / "subdir").mkdir()
         (tmp_path / "subdir" / "file.py").write_text("content\n")
