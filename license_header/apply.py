@@ -1,0 +1,298 @@
+"""
+Apply module for license-header tool.
+
+Implements header insertion logic with idempotency, shebang preservation,
+and atomic file writes.
+"""
+
+import logging
+import os
+import tempfile
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import List, Optional
+
+from .config import Config, get_header_content
+from .scanner import scan_repository
+from .utils import (
+    extract_shebang,
+    has_shebang,
+    read_file_with_encoding,
+    write_file_with_encoding,
+)
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ApplyResult:
+    """Result of applying headers to files."""
+    
+    modified_files: List[Path] = field(default_factory=list)
+    already_compliant: List[Path] = field(default_factory=list)
+    skipped_files: List[Path] = field(default_factory=list)
+    failed_files: List[Path] = field(default_factory=list)
+    
+    def total_processed(self) -> int:
+        """Return total number of files processed."""
+        return (
+            len(self.modified_files)
+            + len(self.already_compliant)
+            + len(self.skipped_files)
+            + len(self.failed_files)
+        )
+
+
+def normalize_header(header: str) -> str:
+    """
+    Normalize header text for comparison.
+    
+    Ensures header ends with exactly one newline for consistent comparison.
+    
+    Args:
+        header: Header text to normalize
+        
+    Returns:
+        Normalized header text
+    """
+    # Strip trailing whitespace and ensure exactly one trailing newline
+    return header.rstrip() + '\n'
+
+
+def has_header(content: str, header: str) -> bool:
+    """
+    Check if content already has the header.
+    
+    This performs an exact match check. The header must appear at the start
+    of the file (after any shebang line).
+    
+    Args:
+        content: File content to check
+        header: Header text to look for
+        
+    Returns:
+        True if content has the header, False otherwise
+    """
+    # Normalize both header and content for comparison
+    normalized_header = normalize_header(header)
+    
+    # Extract shebang if present
+    shebang, remaining = extract_shebang(content)
+    
+    # Check if remaining content starts with the header
+    if remaining.startswith(normalized_header):
+        return True
+    
+    # Also check with various whitespace variations around the header
+    # to handle cases where there might be extra blank lines
+    lines = remaining.split('\n')
+    
+    # Skip leading empty lines
+    start_idx = 0
+    while start_idx < len(lines) and lines[start_idx].strip() == '':
+        start_idx += 1
+    
+    # Reconstruct content without leading whitespace
+    content_without_leading_ws = '\n'.join(lines[start_idx:])
+    if start_idx < len(lines):
+        content_without_leading_ws = '\n'.join(lines[start_idx:])
+        if content_without_leading_ws.startswith(normalized_header.rstrip()):
+            return True
+    
+    return False
+
+
+def insert_header(content: str, header: str) -> str:
+    """
+    Insert header into file content.
+    
+    Preserves shebang lines if present. Inserts header immediately after
+    shebang, or at the start of the file if no shebang.
+    
+    Args:
+        content: Original file content
+        header: Header text to insert
+        
+    Returns:
+        New file content with header inserted
+    """
+    normalized_header = normalize_header(header)
+    
+    # Extract shebang if present
+    shebang, remaining = extract_shebang(content)
+    
+    # Build new content
+    if shebang:
+        # Insert header after shebang
+        new_content = shebang + normalized_header + remaining
+    else:
+        # Insert header at start
+        new_content = normalized_header + remaining
+    
+    return new_content
+
+
+def apply_header_to_file(
+    file_path: Path,
+    header: str,
+    dry_run: bool = False,
+    output_dir: Optional[Path] = None
+) -> bool:
+    """
+    Apply header to a single file.
+    
+    Writes changes atomically using a temporary file and rename.
+    
+    Args:
+        file_path: Path to file to modify
+        header: Header text to insert
+        dry_run: If True, don't actually modify files
+        output_dir: If provided, write to this directory instead of in-place
+        
+    Returns:
+        True if file was modified, False if already compliant or skipped
+        
+    Raises:
+        OSError: If file cannot be read or written
+        PermissionError: If file cannot be accessed
+    """
+    try:
+        # Read file with encoding detection
+        content, bom, encoding = read_file_with_encoding(file_path)
+        
+        # Check if header already present
+        if has_header(content, header):
+            logger.debug(f"File already has header: {file_path}")
+            return False
+        
+        # Insert header
+        new_content = insert_header(content, header)
+        
+        if dry_run:
+            logger.info(f"[DRY RUN] Would add header to: {file_path}")
+            return True
+        
+        # Determine output path
+        if output_dir:
+            # Write to output directory, preserving structure
+            # This is simplified - in production would need to handle relative paths properly
+            output_path = output_dir / file_path.name
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+        else:
+            output_path = file_path
+        
+        # Write atomically using temporary file
+        # Create temp file in same directory as target to ensure same filesystem
+        temp_fd, temp_path = tempfile.mkstemp(
+            dir=output_path.parent,
+            prefix=f'.{output_path.name}.',
+            suffix='.tmp'
+        )
+        
+        try:
+            # Close the fd, we'll use our own write function
+            os.close(temp_fd)
+            
+            # Write new content to temp file
+            write_file_with_encoding(Path(temp_path), new_content, bom, encoding)
+            
+            # Preserve file permissions if modifying in-place
+            if not output_dir:
+                try:
+                    stat_info = os.stat(file_path)
+                    os.chmod(temp_path, stat_info.st_mode)
+                except (OSError, AttributeError):
+                    # If we can't preserve permissions, continue anyway
+                    pass
+            
+            # Atomic rename
+            os.replace(temp_path, output_path)
+            
+            logger.info(f"Added header to: {file_path}")
+            return True
+            
+        except Exception as e:
+            # Clean up temp file on error
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                pass
+            raise
+    
+    except PermissionError as e:
+        logger.error(f"Permission denied accessing {file_path}: {e}")
+        raise
+    except (OSError, IOError) as e:
+        logger.error(f"Error processing {file_path}: {e}")
+        raise
+
+
+def apply_headers(config: Config) -> ApplyResult:
+    """
+    Apply headers to all eligible files in the repository.
+    
+    Args:
+        config: Configuration object with header and scanning settings
+        
+    Returns:
+        ApplyResult with statistics about modified files
+    """
+    result = ApplyResult()
+    
+    # Get header content
+    header = get_header_content(config)
+    
+    # Determine paths
+    repo_root = config._repo_root
+    scan_path = Path(config.path)
+    if not scan_path.is_absolute():
+        scan_path = repo_root / scan_path
+    
+    # Scan repository for eligible files
+    logger.info(f"Scanning {scan_path} for eligible files...")
+    scan_result = scan_repository(
+        root_path=scan_path,
+        include_extensions=config.include_extensions,
+        exclude_patterns=config.exclude_paths,
+        repo_root=repo_root,
+    )
+    
+    logger.info(f"Found {len(scan_result.eligible_files)} eligible files")
+    
+    # Process output directory if specified
+    output_dir = None
+    if config.output_dir:
+        output_dir = Path(config.output_dir)
+        if not output_dir.is_absolute():
+            output_dir = repo_root / output_dir
+        
+        if not config.dry_run:
+            output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Apply header to each eligible file
+    for file_path in scan_result.eligible_files:
+        try:
+            was_modified = apply_header_to_file(
+                file_path=file_path,
+                header=header,
+                dry_run=config.dry_run,
+                output_dir=output_dir
+            )
+            
+            if was_modified:
+                result.modified_files.append(file_path)
+            else:
+                result.already_compliant.append(file_path)
+                
+        except (PermissionError, OSError, IOError) as e:
+            logger.error(f"Failed to process {file_path}: {e}")
+            result.failed_files.append(file_path)
+    
+    # Track skipped files from scan
+    result.skipped_files.extend(scan_result.skipped_binary)
+    result.skipped_files.extend(scan_result.skipped_excluded)
+    result.skipped_files.extend(scan_result.skipped_symlink)
+    result.skipped_files.extend(scan_result.skipped_permission)
+    result.skipped_files.extend(scan_result.skipped_extension)
+    
+    return result

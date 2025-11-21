@@ -7,6 +7,7 @@ import sys
 import click
 
 from .config import merge_config, get_header_content
+from .apply import apply_headers
 
 
 # Configure structured logging
@@ -85,12 +86,33 @@ def apply(config, header, path, output, include_extension, exclude_path, dry_run
         click.echo(f"  Header content loaded: {len(header_content)} characters")
         click.echo()
         
-        if dry_run:
-            click.echo(f"[DRY RUN] Would apply license headers to files in: {path}")
-        else:
-            click.echo(f"Would apply license headers to files in: {path}")
+        # Apply headers
+        logger.info("Applying license headers...")
+        result = apply_headers(cfg)
         
-        click.echo("Note: Header application logic not yet implemented.")
+        # Display results
+        click.echo(f"Results:")
+        click.echo(f"  Modified files: {len(result.modified_files)}")
+        click.echo(f"  Already compliant: {len(result.already_compliant)}")
+        click.echo(f"  Skipped files: {len(result.skipped_files)}")
+        click.echo(f"  Failed files: {len(result.failed_files)}")
+        click.echo()
+        
+        if result.modified_files:
+            click.echo(f"Modified {len(result.modified_files)} file(s):")
+            for file_path in result.modified_files[:10]:  # Show first 10
+                click.echo(f"  - {file_path}")
+            if len(result.modified_files) > 10:
+                click.echo(f"  ... and {len(result.modified_files) - 10} more")
+        
+        if result.failed_files:
+            click.echo(f"\nFailed to process {len(result.failed_files)} file(s):")
+            for file_path in result.failed_files:
+                click.echo(f"  - {file_path}")
+        
+        if dry_run:
+            click.echo("\n[DRY RUN] No files were actually modified.")
+        
         logger.info("Apply command completed successfully")
         
     except click.ClickException:
