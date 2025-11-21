@@ -80,7 +80,7 @@ license-header apply
 # Apply headers to specific path
 license-header apply --path /path/to/project
 
-# Preview changes without modifying files
+# Preview changes without modifying files (recommended first)
 license-header apply --dry-run
 
 # Specify custom header file
@@ -92,13 +92,54 @@ license-header apply --include-extension .py --include-extension .js
 # Exclude specific paths
 license-header apply --exclude-path dist --exclude-path build
 
-# Save modified files to output directory
-license-header apply --output ./output
+# Generate JSON and Markdown reports
+license-header apply --output reports/
+
+# Save modified files to output directory (instead of in-place)
+license-header apply --output ./modified-files
+```
+
+**Dry Run Mode:**
+
+The `--dry-run` flag shows exactly which files would be modified without touching the filesystem:
+
+```bash
+$ license-header apply --dry-run
+
+Summary:
+  Scanned: 150
+  Eligible: 100
+  Added: 5              # Files that would get headers
+  Compliant: 95         # Files already compliant
+  Skipped-binary: 50
+  Failed: 0
+
+[DRY RUN] Files that would be modified:
+  - src/main.py
+  - src/utils.py
+  - tests/test_app.py
+  ... and 2 more
+
+[DRY RUN] No files were actually modified.
+```
+
+**Summary Counters:**
+
+The apply command prints deterministic summary counters to the console:
+
+```
+Summary:
+  Scanned: 150          # Total files scanned (eligible + skipped)
+  Eligible: 100         # Files that match extensions and aren't excluded
+  Added: 5              # Files that had headers added
+  Compliant: 95         # Files that already had correct headers
+  Skipped-binary: 50    # Binary files and excluded files
+  Failed: 0             # Files that couldn't be processed
 ```
 
 ### Check License Headers
 
-Verify that source files have correct license headers:
+Verify that source files have correct license headers without modifying any files:
 
 ```bash
 # Check current directory
@@ -107,14 +148,38 @@ license-header check
 # Check specific path
 license-header check --path /path/to/project
 
-# Preview check results without performing actions
-license-header check --dry-run
-
-# Fail on any missing or incorrect headers
+# Fail on any missing or incorrect headers (recommended for CI)
 license-header check --strict
+
+# Generate JSON and Markdown reports
+license-header check --output reports/
+
+# Preview check without generating reports
+license-header check --dry-run --output reports/
 
 # Use custom configuration
 license-header check --config my-config.json
+```
+
+**Check Mode Behavior:**
+
+- **Exit Codes**: Without `--strict`, exits with code 0 even if files are non-compliant. With `--strict`, exits with code 1 if any files are missing headers or fail to be checked.
+- **Non-Compliant Files**: Lists all files that are missing the required license header.
+- **Reports**: When `--output` is specified, generates both JSON and Markdown reports with detailed results.
+- **Dry Run**: With `--dry-run`, performs the check but skips report generation (useful for preview).
+
+**Summary Counters:**
+
+The check command prints deterministic summary counters to the console:
+
+```
+Summary:
+  Scanned: 150          # Total files scanned (eligible + skipped)
+  Eligible: 100         # Files that match extensions and aren't excluded
+  Compliant: 95         # Files with correct headers
+  Non-compliant: 5      # Files missing headers
+  Skipped-binary: 50    # Binary files and excluded files
+  Failed: 0             # Files that couldn't be read
 ```
 
 ## Configuration
@@ -276,6 +341,136 @@ The tool enforces security restrictions on file paths:
 - **Unknown file extensions**: Logged as warnings but don't prevent execution
 - **Invalid exclude patterns**: Logged as warnings but don't prevent execution
 
+## Reports
+
+The tool can generate both JSON and Markdown reports for both `apply` and `check` operations. Reports are written to the directory specified by the `--output` flag.
+
+### Report Generation
+
+```bash
+# Generate reports for check mode
+license-header check --output reports/
+
+# Generate reports for apply mode
+license-header apply --output reports/
+
+# Dry-run prevents report generation
+license-header check --dry-run --output reports/  # Reports NOT generated
+```
+
+### Report Formats
+
+#### JSON Reports
+
+JSON reports are named `license-header-{mode}-report.json` and contain:
+
+```json
+{
+  "timestamp": "2025-11-21T07:14:41.836368+00:00",
+  "mode": "check",
+  "summary": {
+    "scanned": 150,
+    "eligible": 100,
+    "compliant": 95,
+    "non_compliant": 5,
+    "skipped": 50,
+    "failed": 0
+  },
+  "files": {
+    "compliant": ["src/main.py", "src/utils.py"],
+    "non_compliant": ["src/new.py", "tests/test_new.py"],
+    "skipped": ["data/binary.bin"],
+    "failed": []
+  }
+}
+```
+
+For `apply` mode, the structure is similar but uses `modified` instead of `non_compliant`:
+
+```json
+{
+  "timestamp": "2025-11-21T07:14:41.836368+00:00",
+  "mode": "apply",
+  "summary": {
+    "scanned": 150,
+    "eligible": 100,
+    "modified": 5,
+    "compliant": 95,
+    "skipped": 50,
+    "failed": 0
+  },
+  "files": {
+    "modified": ["src/new.py", "tests/test_new.py"],
+    "compliant": ["src/main.py", "src/utils.py"],
+    "skipped": ["data/binary.bin"],
+    "failed": []
+  }
+}
+```
+
+#### Markdown Reports
+
+Markdown reports are named `license-header-{mode}-report.md` and provide a human-readable summary:
+
+```markdown
+# License Header Check Report
+
+**Generated:** 2025-11-21T07:14:41.836684+00:00
+
+## Summary
+
+- **Scanned:** 150
+- **Eligible:** 100
+- **Compliant:** 95
+- **Non-Compliant:** 5
+- **Skipped:** 50
+- **Failed:** 0
+
+## Non-Compliant Files
+
+- `src/new.py`
+- `tests/test_new.py`
+
+## Compliant Files
+
+- `src/main.py`
+- `src/utils.py`
+- ... and 93 more
+```
+
+**Note:** Large file lists (>100 files) are truncated in Markdown reports for readability. The full list is always available in the JSON report.
+
+### Report Error Handling
+
+The tool validates the output directory before generating reports:
+
+- **Missing directory**: Automatically created if it doesn't exist
+- **Unwritable directory**: Clear error message without leaking files elsewhere
+- **File instead of directory**: Clear error message
+- **Permission errors**: Detailed error message with the specific issue
+
+Reports are only generated when:
+- The `--output` flag is specified
+- The command is NOT in dry-run mode (`--dry-run` prevents report generation)
+- The output directory is valid and writable
+
+### Report Usage in CI
+
+Reports are particularly useful in CI/CD pipelines:
+
+```yaml
+- name: Check license headers
+  run: |
+    license-header check --strict --output reports/
+  
+- name: Upload reports
+  if: always()
+  uses: actions/upload-artifact@v3
+  with:
+    name: license-reports
+    path: reports/
+```
+
 ## Header Detection and Application
 
 The tool uses intelligent header detection to ensure idempotent and safe header insertion.
@@ -348,7 +543,11 @@ license-header check --help
 
 ## GitHub Actions Integration
 
-Use the CLI in your GitHub Actions workflows:
+The tool is designed for seamless integration with GitHub Actions CI/CD pipelines.
+
+### Basic Check Workflow
+
+Enforce license headers on all pushes and pull requests:
 
 ```yaml
 name: License Header Check
@@ -367,17 +566,113 @@ jobs:
           python-version: '3.11'
       
       - name: Install license-header
-        run: |
-          pip install -e .
+        run: pip install -e .
+      
+      - name: Check license headers (strict mode)
+        run: license-header check --strict
+```
+
+**Key Points:**
+- The workflow **fails** if any files are missing license headers (due to `--strict`)
+- Exit code 1 causes the GitHub Actions workflow to fail
+- No files are modified; this is a read-only check
+
+### Check with Reports
+
+Generate and upload detailed reports as artifacts:
+
+```yaml
+name: License Header Check with Reports
+
+on: [push, pull_request]
+
+jobs:
+  check-headers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install license-header
+        run: pip install -e .
       
       - name: Check license headers
-        run: |
-          license-header check --strict
+        run: license-header check --strict --output reports/
+      
+      - name: Upload reports
+        if: always()  # Upload even if check fails
+        uses: actions/upload-artifact@v3
+        with:
+          name: license-header-reports
+          path: reports/
+          retention-days: 30
 ```
+
+**Benefits:**
+- Reports available as downloadable artifacts
+- JSON reports can be processed by other tools
+- Markdown reports provide human-readable summaries
+- `if: always()` ensures reports are uploaded even when check fails
+
+### Auto-Fix Workflow (Optional)
+
+Automatically apply headers and commit changes:
+
+```yaml
+name: Auto-Fix License Headers
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  auto-fix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install license-header
+        run: pip install -e .
+      
+      - name: Apply license headers
+        run: license-header apply
+      
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff-index --quiet HEAD || git commit -m "chore: auto-apply license headers"
+          git push
+```
+
+**Caution:** This workflow modifies code automatically. Consider:
+- Running only on specific branches
+- Requiring manual approval
+- Using pull request workflows instead
+
+### CI Best Practices
+
+1. **Always use `--strict`** in CI to fail builds on missing headers
+2. **Generate reports** for debugging when checks fail
+3. **Use `--dry-run` locally** before committing to see what would change
+4. **Pin Python version** (e.g., `3.11`) for reproducibility
+5. **Cache dependencies** to speed up workflow execution
 
 ## Development Status
 
-This project is in early development. Configuration loading, CLI options, and repository scanning are fully implemented.
+This project is under active development. All core features are implemented and tested.
 
 ### Current Status
 
@@ -396,6 +691,11 @@ This project is in early development. Configuration loading, CLI options, and re
 - ✅ Symlink handling and circular reference detection
 - ✅ Header detection and insertion logic
 - ✅ Idempotent header application with shebang preservation
+- ✅ Check mode with non-zero exit on non-compliant files
+- ✅ Dry-run support for both apply and check
+- ✅ JSON and Markdown report generation
+- ✅ Deterministic summary counters
+- ✅ GitHub Actions integration examples
 
 
 
