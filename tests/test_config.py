@@ -132,11 +132,21 @@ class TestLoadHeaderContent:
         assert "Header file not found" in str(exc_info.value)
     
     def test_load_header_outside_repo(self, tmp_path):
-        """Test loading a header file outside the repo."""
+        """Test loading a header file outside the repo with absolute path."""
+        # Create a header file outside the repo
         outside_path = tmp_path.parent / "outside.txt"
+        outside_content = "# Absolute Path Header\n"
+        outside_path.write_text(outside_content)
         
+        # Absolute paths should be allowed for header files
+        result = load_header_content(str(outside_path), tmp_path)
+        assert result == outside_content
+    
+    def test_load_header_relative_outside_repo(self, tmp_path):
+        """Test that relative paths escaping repo root are blocked."""
+        # Try to use a relative path that escapes the repo
         with pytest.raises(ClickException) as exc_info:
-            load_header_content(str(outside_path), tmp_path)
+            load_header_content("../outside.txt", tmp_path)
         assert "traverses above repository root" in str(exc_info.value)
     
     def test_load_header_without_newline(self, tmp_path):

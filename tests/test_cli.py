@@ -180,6 +180,25 @@ class TestApplyCommand:
             result = self.runner.invoke(main, ['apply', '--header', 'CUSTOM.txt', '--dry-run'])
             assert result.exit_code == 0
             assert 'Header file: CUSTOM.txt' in result.output
+    
+    def test_apply_with_absolute_header_path(self):
+        """Test apply command with absolute path to header file."""
+        with self.runner.isolated_filesystem():
+            # Create a header file with absolute path
+            import tempfile
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+                f.write('# Absolute Path Header\n')
+                abs_header_path = f.name
+            
+            try:
+                result = self.runner.invoke(main, ['apply', '--header', abs_header_path, '--dry-run'])
+                assert result.exit_code == 0
+                assert 'Configuration loaded successfully' in result.output
+                assert abs_header_path in result.output
+            finally:
+                # Clean up
+                import os
+                os.unlink(abs_header_path)
 
 
 class TestCheckCommand:

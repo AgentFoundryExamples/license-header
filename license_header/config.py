@@ -129,8 +129,10 @@ def load_header_content(header_file: str, repo_root: Path) -> str:
     if not header_path.is_absolute():
         header_path = repo_root / header_path
     
-    # Validate path is within repo
-    validate_path_in_repo(header_path, repo_root, "Header file path")
+    # For relative paths, validate they don't traverse above repo root
+    # Absolute paths are allowed since we're only reading the header file
+    if not Path(header_file).is_absolute():
+        validate_path_in_repo(header_path, repo_root, "Header file path")
     
     # Check file exists
     if not header_path.exists():
@@ -151,6 +153,7 @@ def load_header_content(header_file: str, repo_root: Path) -> str:
         return content
     except Exception as e:
         raise click.ClickException(f"Error reading header file {header_path}: {e}")
+
 
 
 def validate_extensions(extensions: List[str]) -> None:
