@@ -138,7 +138,7 @@ Create a `license-header.config.json` file in your repository root:
 
 | Option | CLI Flag | Config File Key | Default | Description |
 |--------|----------|----------------|---------|-------------|
-| **Header File** | `--header` | `header_file` | None (required) | Path to the license header file (relative to repo root or absolute) |
+| **Header File** | `--header` | `header_file` | `LICENSE_HEADER` if present, else required | Path to the license header file (relative to repo root or absolute) |
 | **Include Extensions** | `--include-extension` | `include_extensions` | `[".py", ".js", ".ts", ".java", ".cpp", ".c", ".h"]` | File extensions to process. CLI flag can be specified multiple times. |
 | **Exclude Paths** | `--exclude-path` | `exclude_paths` | `["node_modules", ".git", "__pycache__", "venv", "env", ".venv"]` | Paths/patterns to exclude from processing. CLI flag can be specified multiple times. |
 | **Output Directory** | `--output` | `output_dir` | None (modify in-place) | Directory to save modified files (apply mode) or reports (check mode) |
