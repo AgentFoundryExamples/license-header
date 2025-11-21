@@ -277,7 +277,3 @@ def generate_reports(
     generate_markdown_report(result, markdown_path, mode, repo_root)
     
     logger.info(f"Reports generated in {output_dir}")
-
-
-# Import os for access check
-import os

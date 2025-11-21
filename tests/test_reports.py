@@ -3,6 +3,7 @@ Tests for reports module.
 """
 
 import json
+import os
 import tempfile
 import pytest
 from pathlib import Path
@@ -250,7 +251,6 @@ class TestGenerateReports:
             output_dir.mkdir()
             
             # Make directory read-only
-            import os
             os.chmod(output_dir, 0o444)
             
             try:
