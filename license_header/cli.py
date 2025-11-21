@@ -203,10 +203,8 @@ def check(config, header, path, output, include_extension, exclude_path, dry_run
         # Display non-compliant files
         if result.non_compliant_files:
             click.echo(f"Files missing license headers ({len(result.non_compliant_files)}):")
-            for file_path in result.non_compliant_files[:20]:  # Show first 20
+            for file_path in result.non_compliant_files:
                 click.echo(f"  - {file_path}")
-            if len(result.non_compliant_files) > 20:
-                click.echo(f"  ... and {len(result.non_compliant_files) - 20} more")
             click.echo()
         
         # Display failed files
