@@ -321,24 +321,14 @@ def apply_headers(config: Config) -> ApplyResult:
     
     logger.info(f"Found {len(scan_result.eligible_files)} eligible files")
     
-    # Process output directory if specified
-    output_dir = None
-    if config.output_dir:
-        output_dir = Path(config.output_dir)
-        if not output_dir.is_absolute():
-            output_dir = repo_root / output_dir
-        
-        if not config.dry_run:
-            output_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Apply header to each eligible file
+    # Apply header to each eligible file (always in-place, never copying to output dir)
     for file_path in scan_result.eligible_files:
         try:
             was_modified = apply_header_to_file(
                 file_path=file_path,
                 header=header,
                 dry_run=config.dry_run,
-                output_dir=output_dir,
+                output_dir=None,  # Always modify in-place
                 scan_root=scan_path
             )
             

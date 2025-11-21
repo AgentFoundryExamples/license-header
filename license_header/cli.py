@@ -8,6 +8,8 @@ import click
 
 from .config import merge_config, get_header_content
 from .apply import apply_headers
+from .check import check_headers
+from .reports import generate_reports
 
 
 # Configure structured logging
@@ -48,12 +50,12 @@ def main():
 @click.option('--config', type=str, help='Path to configuration file (default: license-header.config.json if present)')
 @click.option('--header', type=str, help='Path to license header file')
 @click.option('--path', default='.', help='Path to apply license headers (default: current directory)')
-@click.option('--output', type=str, help='Output directory for modified files (default: modify in place)')
+@click.option('--output', type=str, help='Output directory for JSON and Markdown report files (default: no reports generated)')
 @click.option('--include-extension', multiple=True, help='File extensions to include (e.g., .py, .js). Can be specified multiple times.')
 @click.option('--exclude-path', multiple=True, help='Paths/patterns to exclude (e.g., node_modules). Can be specified multiple times.')
 @click.option('--dry-run', is_flag=True, help='Preview changes without modifying files')
 def apply(config, header, path, output, include_extension, exclude_path, dry_run):
-    """Apply license headers to source files."""
+    """Apply license headers to source files (modifies files in-place)."""
     logger.info(f"Apply command called with path='{path}', dry_run={dry_run}")
     
     try:
@@ -88,17 +90,27 @@ def apply(config, header, path, output, include_extension, exclude_path, dry_run
         
         # Apply headers
         logger.info("Applying license headers...")
+        # Note: We don't pass output_dir to apply_headers - it's only used for report generation
+        # Apply always modifies files in-place
         result = apply_headers(cfg)
         
-        # Display results
-        click.echo(f"Results:")
-        click.echo(f"  Modified files: {len(result.modified_files)}")
-        click.echo(f"  Already compliant: {len(result.already_compliant)}")
-        click.echo(f"  Skipped files: {len(result.skipped_files)}")
-        click.echo(f"  Failed files: {len(result.failed_files)}")
+        # Display summary
+        click.echo(f"Summary:")
+        click.echo(f"  Scanned: {result.total_processed()}")
+        click.echo(f"  Eligible: {len(result.modified_files) + len(result.already_compliant) + len(result.failed_files)}")
+        click.echo(f"  Added: {len(result.modified_files)}")
+        click.echo(f"  Compliant: {len(result.already_compliant)}")
+        click.echo(f"  Skipped: {len(result.skipped_files)}")
+        click.echo(f"  Failed: {len(result.failed_files)}")
         click.echo()
         
-        if result.modified_files:
+        if dry_run:
+            click.echo("[DRY RUN] Files that would be modified:")
+            for file_path in result.modified_files:
+                click.echo(f"  - {file_path}")
+            click.echo()
+            click.echo("[DRY RUN] No files were actually modified.")
+        elif result.modified_files:
             click.echo(f"Modified {len(result.modified_files)} file(s):")
             for file_path in result.modified_files[:10]:  # Show first 10
                 click.echo(f"  - {file_path}")
@@ -110,8 +122,20 @@ def apply(config, header, path, output, include_extension, exclude_path, dry_run
             for file_path in result.failed_files:
                 click.echo(f"  - {file_path}")
         
-        if dry_run:
-            click.echo("\n[DRY RUN] No files were actually modified.")
+        # Generate reports if output directory specified
+        if cfg.output_dir and not dry_run:
+            try:
+                from pathlib import Path
+                output_path = Path(cfg.output_dir)
+                if not output_path.is_absolute():
+                    output_path = cfg._repo_root / output_path
+                
+                click.echo(f"\nGenerating reports in {output_path}...")
+                generate_reports(result, output_path, 'apply', cfg._repo_root)
+                click.echo(f"Reports written to {output_path}")
+            except Exception as e:
+                logger.error(f"Failed to generate reports: {e}")
+                raise click.ClickException(f"Failed to generate reports: {e}")
         
         logger.info("Apply command completed successfully")
         
@@ -129,11 +153,10 @@ def apply(config, header, path, output, include_extension, exclude_path, dry_run
 @click.option('--output', type=str, help='Output directory for report files (default: none)')
 @click.option('--include-extension', multiple=True, help='File extensions to include (e.g., .py, .js). Can be specified multiple times.')
 @click.option('--exclude-path', multiple=True, help='Paths/patterns to exclude (e.g., node_modules). Can be specified multiple times.')
-@click.option('--dry-run', is_flag=True, help='Preview results without modifying files')
-@click.option('--strict', is_flag=True, help='Fail on any missing or incorrect headers')
-def check(config, header, path, output, include_extension, exclude_path, dry_run, strict):
+@click.option('--dry-run', is_flag=True, help='Preview results without generating reports')
+def check(config, header, path, output, include_extension, exclude_path, dry_run):
     """Check source files for correct license headers."""
-    logger.info(f"Check command called with path='{path}', strict={strict}, dry_run={dry_run}")
+    logger.info(f"Check command called with path='{path}', dry_run={dry_run}")
     
     try:
         # Build CLI args dictionary
@@ -144,7 +167,6 @@ def check(config, header, path, output, include_extension, exclude_path, dry_run
             'include_extension': list(include_extension) if include_extension else None,
             'exclude_path': list(exclude_path) if exclude_path else None,
             'dry_run': dry_run,
-            'strict': strict,
             'mode': 'check',
         }
         
@@ -163,18 +185,65 @@ def check(config, header, path, output, include_extension, exclude_path, dry_run
         if cfg.output_dir:
             click.echo(f"  Output directory: {cfg.output_dir}")
         click.echo(f"  Dry run: {cfg.dry_run}")
-        click.echo(f"  Strict mode: {cfg.strict}")
         click.echo(f"  Header content loaded: {len(header_content)} characters")
         click.echo()
         
-        if dry_run:
-            click.echo(f"[DRY RUN] Would check license headers in: {path}")
-        else:
-            click.echo(f"Would check license headers in: {path}")
-        if strict:
-            click.echo("Running in strict mode - will fail on any issues.")
+        # Check headers
+        logger.info("Checking license headers...")
+        result = check_headers(cfg)
         
-        click.echo("Note: Header checking logic not yet implemented.")
+        # Display summary
+        click.echo(f"Summary:")
+        click.echo(f"  Scanned: {result.total_scanned()}")
+        click.echo(f"  Eligible: {result.total_eligible()}")
+        click.echo(f"  Compliant: {len(result.compliant_files)}")
+        click.echo(f"  Non-compliant: {len(result.non_compliant_files)}")
+        click.echo(f"  Skipped: {len(result.skipped_files)}")
+        click.echo(f"  Failed: {len(result.failed_files)}")
+        click.echo()
+        
+        # Display non-compliant files
+        if result.non_compliant_files:
+            click.echo(f"Files missing license headers ({len(result.non_compliant_files)}):")
+            for file_path in result.non_compliant_files:
+                click.echo(f"  - {file_path}")
+            click.echo()
+        
+        # Display failed files
+        if result.failed_files:
+            click.echo(f"Failed to check {len(result.failed_files)} file(s):")
+            for file_path in result.failed_files:
+                click.echo(f"  - {file_path}")
+            click.echo()
+        
+        # Generate reports if output directory specified and not dry-run
+        if cfg.output_dir and not dry_run:
+            try:
+                from pathlib import Path
+                output_path = Path(cfg.output_dir)
+                if not output_path.is_absolute():
+                    output_path = cfg._repo_root / output_path
+                
+                click.echo(f"Generating reports in {output_path}...")
+                generate_reports(result, output_path, 'check', cfg._repo_root)
+                click.echo(f"Reports written to {output_path}")
+                click.echo()
+            except Exception as e:
+                logger.error(f"Failed to generate reports: {e}")
+                raise click.ClickException(f"Failed to generate reports: {e}")
+        elif cfg.output_dir and dry_run:
+            click.echo(f"[DRY RUN] Would generate reports in {cfg.output_dir}")
+            click.echo()
+        
+        # Determine exit code
+        # Check mode should fail by default when there are non-compliant files
+        if result.non_compliant_files or result.failed_files:
+            logger.error(f"Check failed: {len(result.non_compliant_files)} non-compliant, {len(result.failed_files)} failed")
+            click.echo("Check FAILED: Files are missing license headers or could not be checked.", err=True)
+            sys.exit(1)
+        else:
+            click.echo("Check PASSED: All files have correct license headers.")
+        
         logger.info("Check command completed successfully")
         
     except click.ClickException:

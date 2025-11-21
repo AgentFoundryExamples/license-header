@@ -49,7 +49,7 @@ class TestCLI:
         assert result.exit_code == 0
         assert '--config' in result.output
         assert '--header' in result.output
-        assert '--strict' in result.output
+        assert '--dry-run' in result.output
 
 
 class TestApplyCommand:
@@ -229,15 +229,14 @@ class TestCheckCommand:
             assert result.exit_code == 0
             assert 'Configuration loaded successfully' in result.output
     
-    def test_check_strict_mode(self):
-        """Test check command with strict mode."""
+    def test_check_basic(self):
+        """Test basic check command."""
         with self.runner.isolated_filesystem():
             Path('HEADER.txt').write_text('# Copyright\n')
             
-            result = self.runner.invoke(main, ['check', '--header', 'HEADER.txt', '--strict'])
+            result = self.runner.invoke(main, ['check', '--header', 'HEADER.txt'])
             assert result.exit_code == 0
-            assert 'Strict mode: True' in result.output
-            assert 'Running in strict mode' in result.output
+            assert 'Summary:' in result.output
     
     def test_check_dry_run_mode(self):
         """Test check command with dry-run mode."""
@@ -247,18 +246,7 @@ class TestCheckCommand:
             result = self.runner.invoke(main, ['check', '--header', 'HEADER.txt', '--dry-run'])
             assert result.exit_code == 0
             assert 'Dry run: True' in result.output
-            assert '[DRY RUN] Would check license headers' in result.output
-    
-    def test_check_dry_run_with_strict(self):
-        """Test check command with both dry-run and strict modes."""
-        with self.runner.isolated_filesystem():
-            Path('HEADER.txt').write_text('# Copyright\n')
-            
-            result = self.runner.invoke(main, ['check', '--header', 'HEADER.txt', '--dry-run', '--strict'])
-            assert result.exit_code == 0
-            assert 'Dry run: True' in result.output
-            assert 'Strict mode: True' in result.output
-            assert '[DRY RUN] Would check license headers' in result.output
+            assert 'Summary:' in result.output
     
     def test_check_missing_header_file(self):
         """Test check command with missing header file."""
