@@ -41,13 +41,18 @@ class Config:
     header_file: str
     
     # Optional configuration with defaults
-    include_extensions: List[str] = field(default_factory=lambda: ['.py', '.js', '.ts', '.java', '.cpp', '.c', '.h'])
+    include_extensions: List[str] = field(default_factory=lambda: ['.py', '.js', '.ts', '.java', '.cpp', '.c', '.h', '.cs', '.rs'])
     exclude_paths: List[str] = field(default_factory=lambda: ['node_modules', '.git', '__pycache__', 'venv', 'env', '.venv', 'dist', 'build'])
     output_dir: Optional[str] = None
     dry_run: bool = False
     mode: str = 'apply'  # 'apply' or 'check'
     path: str = '.'
     strict: bool = False
+    
+    # Multi-language comment wrapping configuration
+    wrap_comments: bool = True  # Enable/disable comment wrapping
+    fallback_comment_style: str = 'hash'  # 'hash' for #, 'slash' for //, 'none' for no wrapping
+    use_block_comments: bool = False  # Use block comments instead of line comments
     
     # Resolved paths (computed after loading)
     _header_content: Optional[str] = field(default=None, init=False, repr=False)
@@ -233,13 +238,16 @@ def merge_config(
     
     # Start with defaults from Config dataclass
     config_data = {
-        'include_extensions': ['.py', '.js', '.ts', '.java', '.cpp', '.c', '.h'],
+        'include_extensions': ['.py', '.js', '.ts', '.java', '.cpp', '.c', '.h', '.cs', '.rs'],
         'exclude_paths': ['node_modules', '.git', '__pycache__', 'venv', 'env', '.venv', 'dist', 'build'],
         'output_dir': None,
         'dry_run': False,
         'mode': 'apply',
         'path': '.',
         'strict': False,
+        'wrap_comments': True,
+        'fallback_comment_style': 'hash',
+        'use_block_comments': False,
     }
     
     # Load config file if specified or if default exists
@@ -261,7 +269,8 @@ def merge_config(
     # Merge: config file overrides defaults
     if config_file_data:
         # Map config file keys to internal keys
-        for key in ['include_extensions', 'exclude_paths', 'output_dir', 'header_file']:
+        for key in ['include_extensions', 'exclude_paths', 'output_dir', 'header_file',
+                    'wrap_comments', 'fallback_comment_style', 'use_block_comments']:
             if key in config_file_data and config_file_data[key] is not None:
                 config_data[key] = config_file_data[key]
     
@@ -279,6 +288,10 @@ def merge_config(
                     config_data['exclude_paths'] = value
             elif key == 'header':
                 config_data['header_file'] = value
+            elif key == 'no_wrap_comments':
+                # Handle the --no-wrap-comments flag
+                if value:
+                    config_data['wrap_comments'] = False
             else:
                 config_data[key] = value
     
@@ -296,6 +309,15 @@ def merge_config(
                 "  - Default: 'LICENSE_HEADER' file in repository root"
             )
     
+    # Validate fallback comment style
+    valid_fallback_styles = ['hash', 'slash', 'none']
+    if config_data['fallback_comment_style'] not in valid_fallback_styles:
+        logger.warning(
+            f"Invalid fallback_comment_style '{config_data['fallback_comment_style']}'. "
+            f"Using 'hash'. Valid options: {valid_fallback_styles}"
+        )
+        config_data['fallback_comment_style'] = 'hash'
+    
     # Validate and warn about extensions and patterns
     validate_extensions(config_data['include_extensions'])
     validate_exclude_patterns(config_data['exclude_paths'])
@@ -310,6 +332,9 @@ def merge_config(
         mode=config_data.get('mode', 'apply'),
         path=config_data.get('path', '.'),
         strict=config_data.get('strict', False),
+        wrap_comments=config_data.get('wrap_comments', True),
+        fallback_comment_style=config_data.get('fallback_comment_style', 'hash'),
+        use_block_comments=config_data.get('use_block_comments', False),
     )
     
     # Store repo root

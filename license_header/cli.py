@@ -72,8 +72,17 @@ def main():
 @click.option('--include-extension', multiple=True, help='File extensions to include (e.g., .py, .js). Can be specified multiple times.')
 @click.option('--exclude-path', multiple=True, help='Paths/patterns to exclude (e.g., node_modules). Can be specified multiple times.')
 @click.option('--dry-run', is_flag=True, help='Preview changes without modifying files')
-def apply(config, header, path, output, include_extension, exclude_path, dry_run):
-    """Apply license headers to source files (modifies files in-place)."""
+@click.option('--no-wrap-comments', is_flag=True, help='Disable automatic comment wrapping (use header text as-is)')
+@click.option('--fallback-comment-style', type=click.Choice(['hash', 'slash', 'none']), default=None, help='Comment style for unknown file types (hash=#, slash=//, none=no wrapping)')
+@click.option('--use-block-comments', is_flag=True, help='Use block comments (/* */) instead of line comments where supported')
+def apply(config, header, path, output, include_extension, exclude_path, dry_run, no_wrap_comments, fallback_comment_style, use_block_comments):
+    """Apply license headers to source files (modifies files in-place).
+    
+    Supports multi-language comment wrapping. Header file should contain raw
+    license text without comment markers. The tool automatically wraps the
+    header with the appropriate comment syntax for each file type (Python, C,
+    C++, C#, TypeScript, JavaScript, Java, Rust).
+    """
     logger.info(f"Apply command called with path='{path}', dry_run={dry_run}")
     
     try:
@@ -86,6 +95,9 @@ def apply(config, header, path, output, include_extension, exclude_path, dry_run
             'exclude_path': list(exclude_path) if exclude_path else None,
             'dry_run': dry_run,
             'mode': 'apply',
+            'no_wrap_comments': no_wrap_comments,
+            'fallback_comment_style': fallback_comment_style,
+            'use_block_comments': use_block_comments if use_block_comments else None,
         }
         
         # Merge configuration
@@ -103,6 +115,10 @@ def apply(config, header, path, output, include_extension, exclude_path, dry_run
         if cfg.output_dir:
             click.echo(f"  Output directory: {cfg.output_dir}")
         click.echo(f"  Dry run: {cfg.dry_run}")
+        click.echo(f"  Comment wrapping: {cfg.wrap_comments}")
+        if cfg.wrap_comments:
+            click.echo(f"  Fallback comment style: {cfg.fallback_comment_style}")
+            click.echo(f"  Use block comments: {cfg.use_block_comments}")
         click.echo(f"  Header content loaded: {len(header_content)} characters")
         click.echo()
         
@@ -172,8 +188,16 @@ def apply(config, header, path, output, include_extension, exclude_path, dry_run
 @click.option('--include-extension', multiple=True, help='File extensions to include (e.g., .py, .js). Can be specified multiple times.')
 @click.option('--exclude-path', multiple=True, help='Paths/patterns to exclude (e.g., node_modules). Can be specified multiple times.')
 @click.option('--dry-run', is_flag=True, help='Preview results without generating reports')
-def check(config, header, path, output, include_extension, exclude_path, dry_run):
-    """Check source files for correct license headers."""
+@click.option('--no-wrap-comments', is_flag=True, help='Disable automatic comment wrapping (check for header text as-is)')
+@click.option('--fallback-comment-style', type=click.Choice(['hash', 'slash', 'none']), default=None, help='Comment style for unknown file types (hash=#, slash=//, none=no wrapping)')
+@click.option('--use-block-comments', is_flag=True, help='Expect block comments (/* */) instead of line comments where supported')
+def check(config, header, path, output, include_extension, exclude_path, dry_run, no_wrap_comments, fallback_comment_style, use_block_comments):
+    """Check source files for correct license headers.
+    
+    Supports multi-language comment detection. Header file should contain raw
+    license text without comment markers. The tool automatically checks for
+    the header wrapped with the appropriate comment syntax for each file type.
+    """
     logger.info(f"Check command called with path='{path}', dry_run={dry_run}")
     
     try:
@@ -186,6 +210,9 @@ def check(config, header, path, output, include_extension, exclude_path, dry_run
             'exclude_path': list(exclude_path) if exclude_path else None,
             'dry_run': dry_run,
             'mode': 'check',
+            'no_wrap_comments': no_wrap_comments,
+            'fallback_comment_style': fallback_comment_style,
+            'use_block_comments': use_block_comments if use_block_comments else None,
         }
         
         # Merge configuration
@@ -203,6 +230,10 @@ def check(config, header, path, output, include_extension, exclude_path, dry_run
         if cfg.output_dir:
             click.echo(f"  Output directory: {cfg.output_dir}")
         click.echo(f"  Dry run: {cfg.dry_run}")
+        click.echo(f"  Comment wrapping: {cfg.wrap_comments}")
+        if cfg.wrap_comments:
+            click.echo(f"  Fallback comment style: {cfg.fallback_comment_style}")
+            click.echo(f"  Use block comments: {cfg.use_block_comments}")
         click.echo(f"  Header content loaded: {len(header_content)} characters")
         click.echo()
         

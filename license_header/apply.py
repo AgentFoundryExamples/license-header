@@ -20,7 +20,7 @@
 Apply module for license-header tool.
 
 Implements header insertion logic with idempotency, shebang preservation,
-and atomic file writes.
+and atomic file writes. Supports multi-language comment wrapping.
 """
 
 import logging
@@ -31,6 +31,12 @@ from pathlib import Path
 from typing import List, Optional
 
 from .config import Config, get_header_content
+from .languages import (
+    CommentStyle,
+    DEFAULT_FALLBACK_STYLE,
+    get_comment_style_for_extension,
+    wrap_header_with_comments,
+)
 from .scanner import scan_repository
 from .utils import (
     extract_shebang,
@@ -40,6 +46,14 @@ from .utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# Fallback style mapping
+FALLBACK_STYLES = {
+    'hash': CommentStyle(line_prefix='# '),
+    'slash': CommentStyle(line_prefix='// '),
+    'none': None,
+}
 
 
 @dataclass
@@ -113,6 +127,59 @@ def convert_newlines(text: str, target_newline: str) -> str:
     if target_newline == '\r\n':
         text = text.replace('\n', '\r\n')
     return text
+
+
+def prepare_header_for_file(
+    raw_header: str,
+    file_path: Path,
+    wrap_comments: bool = True,
+    fallback_style_name: str = 'hash',
+    use_block_comments: bool = False
+) -> str:
+    """
+    Prepare header text for a specific file by wrapping with comments.
+    
+    If wrap_comments is True, the header will be wrapped with the appropriate
+    comment syntax for the file's language (detected from extension).
+    
+    Args:
+        raw_header: Raw header text without comment markers
+        file_path: Path to the file (used to detect language)
+        wrap_comments: If True, wrap header with comments; if False, use as-is
+        fallback_style_name: Fallback comment style name ('hash', 'slash', 'none')
+        use_block_comments: If True, use block comments instead of line comments
+        
+    Returns:
+        Header text ready for insertion (with or without comment markers)
+    """
+    if not wrap_comments:
+        # Return header as-is (legacy behavior)
+        return raw_header
+    
+    # Get fallback style
+    fallback_style = FALLBACK_STYLES.get(fallback_style_name, DEFAULT_FALLBACK_STYLE)
+    
+    # Get comment style for file extension
+    extension = file_path.suffix
+    comment_style = get_comment_style_for_extension(
+        extension,
+        fallback_style=fallback_style
+    )
+    
+    if comment_style is None:
+        # No comment style available (fallback was 'none')
+        logger.debug(f"No comment style for {extension}, using raw header")
+        return raw_header
+    
+    # Wrap header with comments
+    wrapped = wrap_header_with_comments(
+        raw_header,
+        comment_style,
+        use_block_comments=use_block_comments
+    )
+    
+    logger.debug(f"Wrapped header for {extension}: {len(raw_header)} -> {len(wrapped)} chars")
+    return wrapped
 
 
 def has_header(content: str, header: str) -> bool:
@@ -311,6 +378,8 @@ def apply_headers(config: Config) -> ApplyResult:
     """
     Apply headers to all eligible files in the repository.
     
+    Uses language-aware comment wrapping when wrap_comments is enabled.
+    
     Args:
         config: Configuration object with header and scanning settings
         
@@ -319,8 +388,8 @@ def apply_headers(config: Config) -> ApplyResult:
     """
     result = ApplyResult()
     
-    # Get header content
-    header = get_header_content(config)
+    # Get raw header content
+    raw_header = get_header_content(config)
     
     # Determine paths
     repo_root = config._repo_root
@@ -339,9 +408,25 @@ def apply_headers(config: Config) -> ApplyResult:
     
     logger.info(f"Found {len(scan_result.eligible_files)} eligible files")
     
+    # Log comment wrapping configuration
+    if config.wrap_comments:
+        logger.info(f"Comment wrapping enabled (fallback: {config.fallback_comment_style}, "
+                    f"block: {config.use_block_comments})")
+    else:
+        logger.info("Comment wrapping disabled - using header as-is")
+    
     # Apply header to each eligible file (always in-place, never copying to output dir)
     for file_path in scan_result.eligible_files:
         try:
+            # Prepare header for this specific file (wrap with comments if enabled)
+            header = prepare_header_for_file(
+                raw_header=raw_header,
+                file_path=file_path,
+                wrap_comments=config.wrap_comments,
+                fallback_style_name=config.fallback_comment_style,
+                use_block_comments=config.use_block_comments
+            )
+            
             was_modified = apply_header_to_file(
                 file_path=file_path,
                 header=header,

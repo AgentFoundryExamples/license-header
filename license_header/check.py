@@ -20,6 +20,7 @@
 Check module for license-header tool.
 
 Implements header compliance checking without modifying files.
+Supports multi-language comment wrapping detection.
 """
 
 import logging
@@ -29,7 +30,7 @@ from typing import List
 
 from .config import Config, get_header_content
 from .scanner import scan_repository
-from .apply import has_header
+from .apply import has_header, prepare_header_for_file
 from .utils import read_file_with_encoding
 
 logger = logging.getLogger(__name__)
@@ -94,7 +95,8 @@ def check_headers(config: Config) -> CheckResult:
     Check all eligible files for required license headers.
     
     Does not modify any files. Scans repository and checks each eligible
-    file for the presence of the required header.
+    file for the presence of the required header. Uses language-aware
+    comment wrapping when wrap_comments is enabled.
     
     Args:
         config: Configuration object with header and scanning settings
@@ -104,8 +106,8 @@ def check_headers(config: Config) -> CheckResult:
     """
     result = CheckResult()
     
-    # Get header content
-    header = get_header_content(config)
+    # Get raw header content
+    raw_header = get_header_content(config)
     
     # Determine paths
     repo_root = config._repo_root
@@ -124,9 +126,25 @@ def check_headers(config: Config) -> CheckResult:
     
     logger.info(f"Found {len(scan_result.eligible_files)} eligible files")
     
+    # Log comment wrapping configuration
+    if config.wrap_comments:
+        logger.info(f"Comment wrapping enabled (fallback: {config.fallback_comment_style}, "
+                    f"block: {config.use_block_comments})")
+    else:
+        logger.info("Comment wrapping disabled - checking for raw header")
+    
     # Check header in each eligible file
     for file_path in scan_result.eligible_files:
         try:
+            # Prepare header for this specific file (wrap with comments if enabled)
+            header = prepare_header_for_file(
+                raw_header=raw_header,
+                file_path=file_path,
+                wrap_comments=config.wrap_comments,
+                fallback_style_name=config.fallback_comment_style,
+                use_block_comments=config.use_block_comments
+            )
+            
             has_required_header = check_file_header(file_path, header)
             
             if has_required_header:
