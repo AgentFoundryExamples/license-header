@@ -1,0 +1,146 @@
+{
+  "type": "directory",
+  "name": "license-header",
+  "children": [
+    {
+      "type": "directory",
+      "name": ".github",
+      "children": [
+        {
+          "type": "directory",
+          "name": "af-config",
+          "children": [
+            {
+              "type": "file",
+              "name": "license-header.config.json"
+            },
+            {
+              "type": "file",
+              "name": "LICENSE_HEADER"
+            },
+            {
+              "type": "file",
+              "name": "repo-analyzer.config.json"
+            }
+          ]
+        },
+        {
+          "type": "directory",
+          "name": "workflows",
+          "children": [
+            {
+              "type": "file",
+              "name": "af_maintenance.yml"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "directory",
+      "name": "license_header",
+      "children": [
+        {
+          "type": "file",
+          "name": "__init__.py"
+        },
+        {
+          "type": "file",
+          "name": "apply.py"
+        },
+        {
+          "type": "file",
+          "name": "check.py"
+        },
+        {
+          "type": "file",
+          "name": "cli.py"
+        },
+        {
+          "type": "file",
+          "name": "config.py"
+        },
+        {
+          "type": "file",
+          "name": "reports.py"
+        },
+        {
+          "type": "file",
+          "name": "scanner.py"
+        },
+        {
+          "type": "file",
+          "name": "utils.py"
+        }
+      ]
+    },
+    {
+      "type": "directory",
+      "name": "repo-analysis-output",
+      "children": [
+        {
+          "type": "file",
+          "name": "SUMMARY.md"
+        }
+      ]
+    },
+    {
+      "type": "directory",
+      "name": "tests",
+      "children": [
+        {
+          "type": "file",
+          "name": "test_apply.py"
+        },
+        {
+          "type": "file",
+          "name": "test_check.py"
+        },
+        {
+          "type": "file",
+          "name": "test_cli.py"
+        },
+        {
+          "type": "file",
+          "name": "test_config.py"
+        },
+        {
+          "type": "file",
+          "name": "test_reports.py"
+        },
+        {
+          "type": "file",
+          "name": "test_scanner.py"
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": ".gitignore"
+    },
+    {
+      "type": "file",
+      "name": "CHANGELOG.md"
+    },
+    {
+      "type": "file",
+      "name": "LICENSE"
+    },
+    {
+      "type": "file",
+      "name": "license-header.config.json"
+    },
+    {
+      "type": "file",
+      "name": "LICENSE_HEADER"
+    },
+    {
+      "type": "file",
+      "name": "pyproject.toml"
+    },
+    {
+      "type": "file",
+      "name": "README.md"
+    }
+  ]
+}
