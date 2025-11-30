@@ -1,5 +1,6 @@
 {
   "header_file": "LICENSE_HEADER",
+  "header_version": "v2",
   "include_extensions": [
     ".py",
     ".js",
@@ -24,5 +25,8 @@
   "output_dir": null,
   "wrap_comments": true,
   "fallback_comment_style": "hash",
-  "use_block_comments": false
+  "use_block_comments": false,
+  "language_comment_overrides": {},
+  "upgrade_from_header": null,
+  "upgrade_to_header": null
 }

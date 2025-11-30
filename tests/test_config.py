@@ -352,3 +352,231 @@ class TestGetHeaderContent:
         
         with pytest.raises(RuntimeError):
             get_header_content(config)
+
+
+class TestHeaderVersionValidation:
+    """Test header_version validation."""
+    
+    def test_valid_v2_header_version(self, tmp_path):
+        """Test that V2 header version is valid for regular operations."""
+        header_file = tmp_path / "HEADER.txt"
+        header_file.write_text("# Header\n")
+        
+        config_file = tmp_path / "config.json"
+        config_data = {
+            "header_file": "HEADER.txt",
+            "header_version": "v2"
+        }
+        config_file.write_text(json.dumps(config_data))
+        
+        config = merge_config({}, config_file_path=str(config_file), repo_root=tmp_path)
+        assert config.header_version == "v2"
+    
+    def test_v1_header_rejected_in_apply_mode(self, tmp_path):
+        """Test that V1 header version is rejected in apply mode."""
+        header_file = tmp_path / "HEADER.txt"
+        header_file.write_text("# Header\n")
+        
+        config_file = tmp_path / "config.json"
+        config_data = {
+            "header_file": "HEADER.txt",
+            "header_version": "v1"
+        }
+        config_file.write_text(json.dumps(config_data))
+        
+        with pytest.raises(ClickException) as exc_info:
+            merge_config({'mode': 'apply'}, config_file_path=str(config_file), repo_root=tmp_path)
+        assert "v1" in str(exc_info.value)
+        assert "upgrade" in str(exc_info.value).lower()
+    
+    def test_v1_header_rejected_in_check_mode(self, tmp_path):
+        """Test that V1 header version is rejected in check mode."""
+        header_file = tmp_path / "HEADER.txt"
+        header_file.write_text("# Header\n")
+        
+        config_file = tmp_path / "config.json"
+        config_data = {
+            "header_file": "HEADER.txt",
+            "header_version": "v1"
+        }
+        config_file.write_text(json.dumps(config_data))
+        
+        with pytest.raises(ClickException) as exc_info:
+            merge_config({'mode': 'check'}, config_file_path=str(config_file), repo_root=tmp_path)
+        assert "v1" in str(exc_info.value)
+    
+    def test_invalid_header_version_rejected(self, tmp_path):
+        """Test that unknown header version strings fail validation."""
+        header_file = tmp_path / "HEADER.txt"
+        header_file.write_text("# Header\n")
+        
+        config_file = tmp_path / "config.json"
+        config_data = {
+            "header_file": "HEADER.txt",
+            "header_version": "v3"
+        }
+        config_file.write_text(json.dumps(config_data))
+        
+        with pytest.raises(ClickException) as exc_info:
+            merge_config({}, config_file_path=str(config_file), repo_root=tmp_path)
+        assert "v3" in str(exc_info.value)
+        assert "Valid options" in str(exc_info.value)
+    
+    def test_default_header_version_is_v2(self, tmp_path):
+        """Test that default header version is V2."""
+        header_file = tmp_path / "HEADER.txt"
+        header_file.write_text("# Header\n")
+        
+        config = merge_config({'header': str(header_file)}, repo_root=tmp_path)
+        assert config.header_version == "v2"
+
+
+class TestLanguageCommentOverrides:
+    """Test language_comment_overrides validation."""
+    
+    def test_valid_language_overrides(self, tmp_path):
+        """Test valid language comment overrides."""
+        header_file = tmp_path / "HEADER.txt"
+        header_file.write_text("# Header\n")
+        
+        config_file = tmp_path / "config.json"
+        config_data = {
+            "header_file": "HEADER.txt",
+            "language_comment_overrides": {
+                ".py": "hash",
+                ".js": "slash",
+                ".c": "block"
+            }
+        }
+        config_file.write_text(json.dumps(config_data))
+        
+        config = merge_config({}, config_file_path=str(config_file), repo_root=tmp_path)
+        assert config.language_comment_overrides[".py"] == "hash"
+        assert config.language_comment_overrides[".js"] == "slash"
+        assert config.language_comment_overrides[".c"] == "block"
+    
+    def test_empty_language_overrides_uses_defaults(self, tmp_path):
+        """Test that empty language overrides fall back to built-in defaults."""
+        header_file = tmp_path / "HEADER.txt"
+        header_file.write_text("# Header\n")
+        
+        config_file = tmp_path / "config.json"
+        config_data = {
+            "header_file": "HEADER.txt",
+            "language_comment_overrides": {}
+        }
+        config_file.write_text(json.dumps(config_data))
+        
+        config = merge_config({}, config_file_path=str(config_file), repo_root=tmp_path)
+        assert config.language_comment_overrides == {}
+    
+    def test_invalid_extension_format_rejected(self, tmp_path):
+        """Test that extensions without leading dot are rejected."""
+        header_file = tmp_path / "HEADER.txt"
+        header_file.write_text("# Header\n")
+        
+        config_file = tmp_path / "config.json"
+        config_data = {
+            "header_file": "HEADER.txt",
+            "language_comment_overrides": {
+                "py": "hash"  # Missing leading dot
+            }
+        }
+        config_file.write_text(json.dumps(config_data))
+        
+        with pytest.raises(ClickException) as exc_info:
+            merge_config({}, config_file_path=str(config_file), repo_root=tmp_path)
+        assert "py" in str(exc_info.value)
+        assert "must start with '.'" in str(exc_info.value)
+    
+    def test_invalid_comment_style_rejected(self, tmp_path):
+        """Test that invalid comment style values are rejected."""
+        header_file = tmp_path / "HEADER.txt"
+        header_file.write_text("# Header\n")
+        
+        config_file = tmp_path / "config.json"
+        config_data = {
+            "header_file": "HEADER.txt",
+            "language_comment_overrides": {
+                ".py": "invalid_style"
+            }
+        }
+        config_file.write_text(json.dumps(config_data))
+        
+        with pytest.raises(ClickException) as exc_info:
+            merge_config({}, config_file_path=str(config_file), repo_root=tmp_path)
+        assert "invalid_style" in str(exc_info.value)
+        assert "Valid styles" in str(exc_info.value)
+
+
+class TestUpgradeConfig:
+    """Test upgrade configuration validation."""
+    
+    def test_upgrade_fields_stored_in_config(self, tmp_path):
+        """Test that upgrade fields are stored in config when provided."""
+        header_file = tmp_path / "HEADER.txt"
+        header_file.write_text("# Header\n")
+        from_header = tmp_path / "FROM.txt"
+        from_header.write_text("# Old Header\n")
+        to_header = tmp_path / "TO.txt"
+        to_header.write_text("# New Header\n")
+        
+        config_file = tmp_path / "config.json"
+        config_data = {
+            "header_file": "HEADER.txt",
+            "upgrade_from_header": "FROM.txt",
+            "upgrade_to_header": "TO.txt"
+        }
+        config_file.write_text(json.dumps(config_data))
+        
+        # Note: upgrade fields are only validated in 'upgrade' mode
+        # In 'apply' mode, they are stored but with a warning
+        config = merge_config({'mode': 'apply'}, config_file_path=str(config_file), repo_root=tmp_path)
+        assert config.upgrade_from_header == "FROM.txt"
+        assert config.upgrade_to_header == "TO.txt"
+    
+    def test_upgrade_path_outside_repo_rejected(self, tmp_path):
+        """Test that relative upgrade paths outside repo root are rejected."""
+        header_file = tmp_path / "HEADER.txt"
+        header_file.write_text("# Header\n")
+        
+        config_file = tmp_path / "config.json"
+        config_data = {
+            "header_file": "HEADER.txt",
+            "upgrade_from_header": "../outside_from.txt",
+            "upgrade_to_header": "TO.txt"
+        }
+        config_file.write_text(json.dumps(config_data))
+        
+        with pytest.raises(ClickException) as exc_info:
+            merge_config({}, config_file_path=str(config_file), repo_root=tmp_path)
+        assert "traverses above repository root" in str(exc_info.value)
+
+
+class TestConfigNewFields:
+    """Test Config dataclass new fields."""
+    
+    def test_config_with_new_fields(self):
+        """Test Config dataclass with all new V2 fields."""
+        config = Config(
+            header_file="test.txt",
+            header_version="v2",
+            upgrade_from_header="from.txt",
+            upgrade_to_header="to.txt",
+            language_comment_overrides={".py": "hash", ".js": "slash"}
+        )
+        
+        assert config.header_version == "v2"
+        assert config.upgrade_from_header == "from.txt"
+        assert config.upgrade_to_header == "to.txt"
+        assert config.language_comment_overrides[".py"] == "hash"
+        assert config.language_comment_overrides[".js"] == "slash"
+    
+    def test_config_default_new_fields(self):
+        """Test Config dataclass default values for new fields."""
+        config = Config(header_file="test.txt")
+        
+        assert config.header_version == "v2"
+        assert config.upgrade_from_header is None
+        assert config.upgrade_to_header is None
+        assert config.language_comment_overrides == {}

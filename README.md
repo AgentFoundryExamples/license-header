@@ -413,12 +413,16 @@ Create a `license-header.config.json` file in your repository root:
 ```json
 {
   "header_file": "LICENSE_HEADER",
+  "header_version": "v2",
   "include_extensions": [".py", ".js", ".ts", ".java", ".cpp", ".c", ".h", ".cs", ".rs"],
   "exclude_paths": ["node_modules", ".git", "__pycache__", "venv", "env", ".venv", "dist", "build"],
   "output_dir": null,
   "wrap_comments": true,
   "fallback_comment_style": "hash",
-  "use_block_comments": false
+  "use_block_comments": false,
+  "language_comment_overrides": {},
+  "upgrade_from_header": null,
+  "upgrade_to_header": null
 }
 ```
 
@@ -427,6 +431,7 @@ Create a `license-header.config.json` file in your repository root:
 | Option | CLI Flag | Config File Key | Default | Description |
 |--------|----------|----------------|---------|-------------|
 | **Header File** | `--header` | `header_file` | `LICENSE_HEADER` if present, else required | Path to the license header file (relative to repo root or absolute) |
+| **Header Version** | N/A | `header_version` | `v2` | Header format version (`v1` or `v2`). Only `v2` allowed for regular runs; `v1` requires upgrade mode. |
 | **Include Extensions** | `--include-extension` | `include_extensions` | `[".py", ".js", ".ts", ".java", ".cpp", ".c", ".h", ".cs", ".rs"]` | File extensions to process. CLI flag can be specified multiple times. |
 | **Exclude Paths** | `--exclude-path` | `exclude_paths` | `["node_modules", ".git", "__pycache__", "venv", "env", ".venv", "dist", "build"]` | Paths/patterns to exclude from processing. CLI flag can be specified multiple times. |
 | **Output Directory** | `--output` | `output_dir` | None (no reports) | Directory to save report files (JSON and Markdown) - files are always modified in-place |
@@ -434,8 +439,79 @@ Create a `license-header.config.json` file in your repository root:
 | **Dry Run** | `--dry-run` | N/A | `false` | Preview results without modifying files (both apply and check modes) |
 | **Config File** | `--config` | N/A | `license-header.config.json` if present | Path to custom configuration file |
 | **Wrap Comments** | `--no-wrap-comments` | `wrap_comments` | `true` | Enable/disable automatic comment wrapping |
-| **Fallback Style** | `--fallback-comment-style` | `fallback_comment_style` | `hash` | Comment style for unknown extensions |
+| **Fallback Style** | `--fallback-comment-style` | `fallback_comment_style` | `hash` | Comment style for unknown extensions (`hash`, `slash`, or `none`) |
 | **Block Comments** | `--use-block-comments` | `use_block_comments` | `false` | Use block comments instead of line comments |
+| **Language Overrides** | N/A | `language_comment_overrides` | `{}` | Per-language comment style overrides (see below) |
+| **Upgrade From** | `--from-header` | `upgrade_from_header` | None | Source header path for upgrade mode |
+| **Upgrade To** | `--to-header` | `upgrade_to_header` | None | Target header path for upgrade mode |
+
+### V2 Header Version
+
+The tool uses V2 headers by default. V2 headers store raw license text without comment markers, allowing the tool to automatically wrap headers with appropriate comment syntax for each file type.
+
+**Key differences between V1 and V2:**
+
+| Aspect | V1 Headers | V2 Headers |
+|--------|------------|------------|
+| Format | Embedded comment markers | Raw license text |
+| Multi-language | Single comment style | Automatic per-language wrapping |
+| Configuration | `header_version: "v1"` | `header_version: "v2"` (default) |
+| Regular runs | Not allowed | Required |
+| Upgrade mode | Source only | Target only |
+
+**Validation Rules:**
+
+- `header_version: "v1"` is **only allowed** in `upgrade` mode (for migrating old headers)
+- `header_version: "v2"` is **required** for `apply` and `check` modes
+- Unknown version strings (e.g., `"v3"`) fail validation with an actionable error
+
+### Language Comment Overrides
+
+The `language_comment_overrides` option allows you to customize comment styles for specific file extensions. This is useful when you want to override the built-in defaults for certain languages.
+
+```json
+{
+  "language_comment_overrides": {
+    ".py": "hash",
+    ".js": "slash",
+    ".c": "block",
+    ".txt": "none"
+  }
+}
+```
+
+**Valid comment style values:**
+
+| Style | Description | Example |
+|-------|-------------|---------|
+| `hash` | Hash-style line comments | `# comment` |
+| `slash` | C-style line comments | `// comment` |
+| `block` | C-style block comments | `/* comment */` |
+| `none` | No comment wrapping | Raw text as-is |
+
+**Validation Rules:**
+
+- Extension keys must start with `.` (e.g., `.py`, not `py`)
+- Style values must be one of: `hash`, `slash`, `block`, `none`
+- Empty override maps (`{}`) are valid and fall back to built-in defaults
+
+### Upgrade Configuration
+
+When using the `upgrade` command, you can configure the source and target headers via the config file or CLI flags.
+
+```json
+{
+  "header_file": "LICENSE_HEADER",
+  "upgrade_from_header": "OLD_HEADER.txt",
+  "upgrade_to_header": "NEW_HEADER.txt"
+}
+```
+
+**Validation Rules:**
+
+- In `upgrade` mode, both `upgrade_from_header` and `upgrade_to_header` are **required**
+- Relative paths must be within the repository root (paths like `../outside.txt` are rejected)
+- In `apply` or `check` mode, these fields are ignored with a warning
 
 ### Repository Traversal
 
