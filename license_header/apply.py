@@ -541,7 +541,8 @@ def strip_comment_markers(text: str) -> str:
             continue
         
         # Handle line comment prefixes
-        # Check for common prefixes in order of length (longer first)
+        # Check for common prefixes in order of length (longer first to avoid partial matches)
+        # We check both with and without trailing space variants
         prefixes = ['// ', '# ', '-- ', '; ', '//', '#', '--', ';']
         found_prefix = False
         for prefix in prefixes:
@@ -573,13 +574,14 @@ def normalize_body_for_comparison(text: str) -> str:
     # Strip comment markers first
     stripped = strip_comment_markers(text)
     
-    # Normalize whitespace (collapse multiple spaces, trim lines)
-    lines = [' '.join(line.split()) for line in stripped.splitlines()]
+    # Normalize whitespace, remove empty lines, lowercase in single pass
+    result_lines = []
+    for line in stripped.splitlines():
+        normalized = ' '.join(line.split())
+        if normalized:
+            result_lines.append(normalized.lower())
     
-    # Remove empty lines and join
-    non_empty = [line for line in lines if line]
-    
-    return '\n'.join(non_empty).strip().lower()
+    return '\n'.join(result_lines).strip()
 
 
 def detect_header_in_content(
