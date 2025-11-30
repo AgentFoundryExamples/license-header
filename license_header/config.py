@@ -299,6 +299,11 @@ def validate_language_comment_overrides(overrides: Dict[str, str]) -> None:
     Raises:
         click.ClickException: If any override value is invalid
     """
+    if not isinstance(overrides, dict):
+        raise click.ClickException(
+            f"Invalid type for 'language_comment_overrides': expected a dictionary, but got {type(overrides).__name__}."
+        )
+    
     if not overrides:
         # Empty overrides are valid - fall back to built-in defaults
         return
@@ -455,13 +460,13 @@ def merge_config(
         upgrade_from_path = Path(upgrade_from)
         if not upgrade_from_path.is_absolute():
             upgrade_from_path = repo_root / upgrade_from_path
-            validate_path_in_repo(upgrade_from_path, repo_root, "Upgrade source header path")
+        validate_path_in_repo(upgrade_from_path, repo_root, "Upgrade source header path")
     
     if upgrade_to:
         upgrade_to_path = Path(upgrade_to)
         if not upgrade_to_path.is_absolute():
             upgrade_to_path = repo_root / upgrade_to_path
-            validate_path_in_repo(upgrade_to_path, repo_root, "Upgrade target header path")
+        validate_path_in_repo(upgrade_to_path, repo_root, "Upgrade target header path")
     
     # Create Config object
     config = Config(

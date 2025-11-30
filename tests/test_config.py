@@ -429,6 +429,27 @@ class TestHeaderVersionValidation:
         
         config = merge_config({'header': str(header_file)}, repo_root=tmp_path)
         assert config.header_version == "v2"
+    
+    def test_v1_header_allowed_in_upgrade_mode(self, tmp_path):
+        """Test that V1 header version is allowed in upgrade mode."""
+        header_file = tmp_path / "HEADER.txt"
+        header_file.write_text("# Header\n")
+        from_header = tmp_path / "FROM.txt"
+        from_header.write_text("# Old Header\n")
+        to_header = tmp_path / "TO.txt"
+        to_header.write_text("# New Header\n")
+        
+        config_file = tmp_path / "config.json"
+        config_data = {
+            "header_file": "HEADER.txt",
+            "header_version": "v1",
+            "upgrade_from_header": "FROM.txt",
+            "upgrade_to_header": "TO.txt"
+        }
+        config_file.write_text(json.dumps(config_data))
+        
+        config = merge_config({'mode': 'upgrade'}, config_file_path=str(config_file), repo_root=tmp_path)
+        assert config.header_version == "v1"
 
 
 class TestLanguageCommentOverrides:
@@ -507,6 +528,22 @@ class TestLanguageCommentOverrides:
             merge_config({}, config_file_path=str(config_file), repo_root=tmp_path)
         assert "invalid_style" in str(exc_info.value)
         assert "Valid styles" in str(exc_info.value)
+    
+    def test_invalid_type_for_language_overrides_rejected(self, tmp_path):
+        """Test that non-dictionary type for language_comment_overrides is rejected."""
+        header_file = tmp_path / "HEADER.txt"
+        header_file.write_text("# Header\n")
+        
+        config_file = tmp_path / "config.json"
+        config_data = {
+            "header_file": "HEADER.txt",
+            "language_comment_overrides": ["not", "a", "dict"]
+        }
+        config_file.write_text(json.dumps(config_data))
+        
+        with pytest.raises(ClickException) as exc_info:
+            merge_config({}, config_file_path=str(config_file), repo_root=tmp_path)
+        assert "expected a dictionary" in str(exc_info.value)
 
 
 class TestUpgradeConfig:
@@ -544,6 +581,25 @@ class TestUpgradeConfig:
         config_data = {
             "header_file": "HEADER.txt",
             "upgrade_from_header": "../outside_from.txt",
+            "upgrade_to_header": "TO.txt"
+        }
+        config_file.write_text(json.dumps(config_data))
+        
+        with pytest.raises(ClickException) as exc_info:
+            merge_config({}, config_file_path=str(config_file), repo_root=tmp_path)
+        assert "traverses above repository root" in str(exc_info.value)
+    
+    def test_absolute_upgrade_path_outside_repo_rejected(self, tmp_path):
+        """Test that absolute upgrade paths outside repo root are rejected."""
+        header_file = tmp_path / "HEADER.txt"
+        header_file.write_text("# Header\n")
+        to_header = tmp_path / "TO.txt"
+        to_header.write_text("# New Header\n")
+        
+        config_file = tmp_path / "config.json"
+        config_data = {
+            "header_file": "HEADER.txt",
+            "upgrade_from_header": "/etc/passwd",
             "upgrade_to_header": "TO.txt"
         }
         config_file.write_text(json.dumps(config_data))
