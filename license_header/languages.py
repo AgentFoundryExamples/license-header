@@ -370,7 +370,6 @@ def wrap_header_with_comments(
                 # Empty lines just get the comment prefix (stripped of trailing space)
                 result_lines.append(comment_style.line_prefix.rstrip())
         return '\n'.join(result_lines) + '\n'
-        return '\n'.join(result_lines) + '\n'
     
     else:
         # No comment style available, return header as-is
