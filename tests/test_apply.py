@@ -1232,3 +1232,369 @@ class TestUpgradeHeaderInFile:
         assert content.startswith("#!/usr/bin/env python\n")
         assert "# New Copyright" in content
         assert "# Old Copyright" not in content
+
+
+# ============================================================
+# Tests for Multi-Language Comment Style Support
+# ============================================================
+
+
+class TestMultiLanguageCommentStyles:
+    """Test apply functionality with different language comment styles."""
+    
+    def test_apply_python_hash_comments(self, tmp_path):
+        """Test applying headers to Python files uses hash comments."""
+        # Create raw header
+        header_file = tmp_path / "HEADER.txt"
+        header_file.write_text("Copyright 2025\nLicensed under MIT\n")
+        
+        # Create Python file
+        (tmp_path / "test.py").write_text("def main():\n    pass\n")
+        
+        cli_args = {'header': str(header_file)}
+        config = merge_config(cli_args, repo_root=tmp_path)
+        result = apply_headers(config)
+        
+        assert len(result.modified_files) == 1
+        content = (tmp_path / "test.py").read_text()
+        assert "# Copyright 2025" in content
+        assert "# Licensed under MIT" in content
+    
+    def test_apply_javascript_slash_comments(self, tmp_path):
+        """Test applying headers to JavaScript files uses slash comments."""
+        header_file = tmp_path / "HEADER.txt"
+        header_file.write_text("Copyright 2025\n")
+        
+        (tmp_path / "app.js").write_text("console.log('hello');\n")
+        
+        cli_args = {'header': str(header_file)}
+        config = merge_config(cli_args, repo_root=tmp_path)
+        result = apply_headers(config)
+        
+        content = (tmp_path / "app.js").read_text()
+        assert "// Copyright 2025" in content
+    
+    def test_apply_typescript_slash_comments(self, tmp_path):
+        """Test applying headers to TypeScript files uses slash comments."""
+        header_file = tmp_path / "HEADER.txt"
+        header_file.write_text("Copyright 2025\n")
+        
+        (tmp_path / "app.ts").write_text("const x: number = 1;\n")
+        
+        cli_args = {'header': str(header_file)}
+        config = merge_config(cli_args, repo_root=tmp_path)
+        result = apply_headers(config)
+        
+        content = (tmp_path / "app.ts").read_text()
+        assert "// Copyright 2025" in content
+    
+    def test_apply_c_slash_comments(self, tmp_path):
+        """Test applying headers to C files uses slash comments."""
+        header_file = tmp_path / "HEADER.txt"
+        header_file.write_text("Copyright 2025\n")
+        
+        (tmp_path / "main.c").write_text("int main() { return 0; }\n")
+        
+        cli_args = {'header': str(header_file)}
+        config = merge_config(cli_args, repo_root=tmp_path)
+        result = apply_headers(config)
+        
+        content = (tmp_path / "main.c").read_text()
+        assert "// Copyright 2025" in content
+    
+    def test_apply_cpp_slash_comments(self, tmp_path):
+        """Test applying headers to C++ files uses slash comments."""
+        header_file = tmp_path / "HEADER.txt"
+        header_file.write_text("Copyright 2025\n")
+        
+        (tmp_path / "main.cpp").write_text("#include <iostream>\n")
+        
+        cli_args = {'header': str(header_file)}
+        config = merge_config(cli_args, repo_root=tmp_path)
+        result = apply_headers(config)
+        
+        content = (tmp_path / "main.cpp").read_text()
+        assert "// Copyright 2025" in content
+    
+    def test_apply_csharp_slash_comments(self, tmp_path):
+        """Test applying headers to C# files uses slash comments."""
+        header_file = tmp_path / "HEADER.txt"
+        header_file.write_text("Copyright 2025\n")
+        
+        (tmp_path / "Program.cs").write_text("namespace App { }\n")
+        
+        cli_args = {'header': str(header_file)}
+        config = merge_config(cli_args, repo_root=tmp_path)
+        result = apply_headers(config)
+        
+        content = (tmp_path / "Program.cs").read_text()
+        assert "// Copyright 2025" in content
+    
+    def test_apply_java_slash_comments(self, tmp_path):
+        """Test applying headers to Java files uses slash comments."""
+        header_file = tmp_path / "HEADER.txt"
+        header_file.write_text("Copyright 2025\n")
+        
+        (tmp_path / "Main.java").write_text("public class Main { }\n")
+        
+        cli_args = {'header': str(header_file)}
+        config = merge_config(cli_args, repo_root=tmp_path)
+        result = apply_headers(config)
+        
+        content = (tmp_path / "Main.java").read_text()
+        assert "// Copyright 2025" in content
+    
+    def test_apply_rust_slash_comments(self, tmp_path):
+        """Test applying headers to Rust files uses slash comments."""
+        header_file = tmp_path / "HEADER.txt"
+        header_file.write_text("Copyright 2025\n")
+        
+        (tmp_path / "main.rs").write_text("fn main() {}\n")
+        
+        cli_args = {'header': str(header_file)}
+        config = merge_config(cli_args, repo_root=tmp_path)
+        result = apply_headers(config)
+        
+        content = (tmp_path / "main.rs").read_text()
+        assert "// Copyright 2025" in content
+    
+    def test_apply_mixed_languages_correct_comments(self, tmp_path):
+        """Test that mixed language files get correct comment styles."""
+        header_file = tmp_path / "HEADER.txt"
+        header_file.write_text("Copyright 2025\nAll rights reserved\n")
+        
+        # Create files for different languages
+        files = {
+            'app.py': ('# Copyright 2025', 'def x(): pass'),
+            'app.js': ('// Copyright 2025', 'console.log(1);'),
+            'app.ts': ('// Copyright 2025', 'let x: number = 1;'),
+            'app.c': ('// Copyright 2025', 'int main() {}'),
+            'app.rs': ('// Copyright 2025', 'fn main() {}'),
+            'App.java': ('// Copyright 2025', 'public class App {}'),
+            'App.cs': ('// Copyright 2025', 'namespace App {}'),
+        }
+        
+        for filename, (_, code) in files.items():
+            (tmp_path / filename).write_text(code + '\n')
+        
+        cli_args = {'header': str(header_file)}
+        config = merge_config(cli_args, repo_root=tmp_path)
+        result = apply_headers(config)
+        
+        # Verify each file has correct comment style
+        for filename, (expected_prefix, _) in files.items():
+            content = (tmp_path / filename).read_text()
+            assert expected_prefix in content, f"{filename} should have {expected_prefix}"
+
+
+class TestShebangPreservationAllLanguages:
+    """Test shebang preservation across different file types."""
+    
+    def test_shebang_python_script(self, tmp_path):
+        """Test shebang preservation in Python scripts."""
+        header_file = tmp_path / "HEADER.txt"
+        header_file.write_text("Copyright 2025\n")
+        
+        (tmp_path / "script.py").write_text("#!/usr/bin/env python3\nprint('hello')\n")
+        
+        cli_args = {'header': str(header_file)}
+        config = merge_config(cli_args, repo_root=tmp_path)
+        apply_headers(config)
+        
+        content = (tmp_path / "script.py").read_text()
+        assert content.startswith("#!/usr/bin/env python3\n")
+        assert "# Copyright 2025" in content
+        # Header should come after shebang, not before
+        shebang_idx = content.index("#!/usr/bin/env python3")
+        copyright_idx = content.index("# Copyright 2025")
+        assert shebang_idx < copyright_idx
+    
+    def test_shebang_bash_style_in_python(self, tmp_path):
+        """Test various shebang styles are preserved."""
+        header_file = tmp_path / "HEADER.txt"
+        header_file.write_text("License Header\n")
+        
+        shebangs = [
+            "#!/usr/bin/python",
+            "#!/usr/bin/env python",
+            "#!/usr/bin/env python3",
+            "#!/usr/local/bin/python3.11",
+        ]
+        
+        for i, shebang in enumerate(shebangs):
+            filename = f"script{i}.py"
+            (tmp_path / filename).write_text(f"{shebang}\ncode()\n")
+        
+        cli_args = {'header': str(header_file)}
+        config = merge_config(cli_args, repo_root=tmp_path)
+        apply_headers(config)
+        
+        for i, shebang in enumerate(shebangs):
+            content = (tmp_path / f"script{i}.py").read_text()
+            assert content.startswith(shebang), f"Shebang {shebang} not preserved"
+    
+    def test_shebang_idempotent(self, tmp_path):
+        """Test that shebang handling is idempotent."""
+        header_file = tmp_path / "HEADER.txt"
+        header_file.write_text("Copyright\n")
+        
+        (tmp_path / "script.py").write_text("#!/usr/bin/env python\ncode()\n")
+        
+        cli_args = {'header': str(header_file)}
+        config = merge_config(cli_args, repo_root=tmp_path)
+        
+        # Apply twice
+        apply_headers(config)
+        content1 = (tmp_path / "script.py").read_text()
+        
+        apply_headers(config)
+        content2 = (tmp_path / "script.py").read_text()
+        
+        assert content1 == content2
+        # Only one shebang should be present
+        assert content2.count("#!/usr/bin/env python") == 1
+
+
+class TestV1VsV2HeaderDetection:
+    """Test detection and handling of V1 (with comment markers) vs V2 (raw) headers."""
+    
+    def test_detect_v1_hash_header(self, tmp_path):
+        """Test detecting V1 hash-style header in file."""
+        content = "# Copyright 2025\n# Licensed under MIT\ndef main(): pass\n"
+        header = "Copyright 2025\nLicensed under MIT\n"
+        
+        found, start, end = detect_header_in_content(content, header)
+        assert found is True
+    
+    def test_detect_v1_slash_header(self, tmp_path):
+        """Test detecting V1 slash-style header in file."""
+        content = "// Copyright 2025\n// Licensed under MIT\nint main() {}\n"
+        header = "Copyright 2025\nLicensed under MIT\n"
+        
+        found, start, end = detect_header_in_content(content, header, '.c')
+        assert found is True
+    
+    def test_strip_v1_hash_comments(self):
+        """Test stripping hash comments from V1 header."""
+        v1_header = "# Copyright 2025\n# Licensed under MIT\n"
+        stripped = strip_comment_markers(v1_header)
+        assert "Copyright 2025" in stripped
+        assert "Licensed under MIT" in stripped
+        assert "#" not in stripped
+    
+    def test_strip_v1_slash_comments(self):
+        """Test stripping slash comments from V1 header."""
+        v1_header = "// Copyright 2025\n// Licensed under MIT\n"
+        stripped = strip_comment_markers(v1_header)
+        assert "Copyright 2025" in stripped
+        assert "Licensed under MIT" in stripped
+        assert "//" not in stripped
+    
+    def test_normalize_v1_and_v2_match(self):
+        """Test that V1 and V2 headers normalize to same body."""
+        v1_header = "# Copyright 2025\n# Licensed under MIT\n"
+        v2_header = "Copyright 2025\nLicensed under MIT\n"
+        
+        v1_normalized = normalize_body_for_comparison(v1_header)
+        v2_normalized = normalize_body_for_comparison(v2_header)
+        
+        assert v1_normalized == v2_normalized
+    
+    def test_upgrade_v1_hash_to_v2(self, tmp_path):
+        """Test upgrading V1 hash-style header to V2."""
+        from license_header.apply import prepare_header_for_file
+        
+        file_path = tmp_path / "test.py"
+        file_path.write_text("# Old Copyright\n# Licensed under MIT\ndef main(): pass\n")
+        
+        from_header = "# Old Copyright\n# Licensed under MIT\n"
+        to_header_raw = "New Copyright\nNew License\n"
+        
+        # The CLI wraps the target header with appropriate comment style
+        to_header = prepare_header_for_file(to_header_raw, file_path, wrap_comments=True)
+        
+        status = upgrade_header_in_file(file_path, from_header, to_header)
+        assert status == 'upgraded'
+        
+        content = file_path.read_text()
+        assert "# New Copyright" in content
+        assert "# New License" in content
+        assert "# Old Copyright" not in content
+    
+    def test_upgrade_v1_slash_to_v2(self, tmp_path):
+        """Test upgrading V1 slash-style header to V2."""
+        from license_header.apply import prepare_header_for_file
+        
+        file_path = tmp_path / "test.js"
+        file_path.write_text("// Old Copyright\n// Licensed under MIT\nconsole.log('hi');\n")
+        
+        from_header = "// Old Copyright\n// Licensed under MIT\n"
+        to_header_raw = "New Copyright\nNew License\n"
+        
+        # The CLI wraps the target header with appropriate comment style
+        to_header = prepare_header_for_file(to_header_raw, file_path, wrap_comments=True)
+        
+        status = upgrade_header_in_file(file_path, from_header, to_header)
+        assert status == 'upgraded'
+        
+        content = file_path.read_text()
+        assert "// New Copyright" in content
+        assert "// New License" in content
+        assert "// Old Copyright" not in content
+
+
+class TestLineEndingHandling:
+    """Test handling of different line endings (CRLF vs LF)."""
+    
+    def test_apply_preserves_crlf(self, tmp_path):
+        """Test that CRLF line endings are preserved."""
+        header_file = tmp_path / "HEADER.txt"
+        header_file.write_text("Copyright 2025\n")
+        
+        # Create file with CRLF line endings
+        file_path = tmp_path / "test.py"
+        with open(file_path, 'wb') as f:
+            f.write(b'def main():\r\n    pass\r\n')
+        
+        cli_args = {'header': str(header_file)}
+        config = merge_config(cli_args, repo_root=tmp_path)
+        apply_headers(config)
+        
+        # Check raw bytes to verify CRLF preserved
+        with open(file_path, 'rb') as f:
+            raw = f.read()
+        
+        # Should have CRLF line endings throughout
+        assert b'\r\n' in raw
+    
+    def test_apply_preserves_lf(self, tmp_path):
+        """Test that LF line endings are preserved."""
+        header_file = tmp_path / "HEADER.txt"
+        header_file.write_text("Copyright 2025\n")
+        
+        # Create file with LF line endings
+        file_path = tmp_path / "test.py"
+        file_path.write_text("def main():\n    pass\n")
+        
+        cli_args = {'header': str(header_file)}
+        config = merge_config(cli_args, repo_root=tmp_path)
+        apply_headers(config)
+        
+        # Check raw bytes
+        with open(file_path, 'rb') as f:
+            raw = f.read()
+        
+        # Should NOT have CRLF
+        assert b'\r\n' not in raw
+    
+    def test_detect_header_crlf_vs_lf(self):
+        """Test header detection works regardless of line endings."""
+        header_lf = "# Copyright 2025\n"
+        
+        # Content with CRLF
+        content_crlf = "# Copyright 2025\r\ndef main():\r\n    pass\r\n"
+        assert has_header(content_crlf, header_lf)
+        
+        # Content with LF
+        content_lf = "# Copyright 2025\ndef main():\n    pass\n"
+        assert has_header(content_lf, header_lf)

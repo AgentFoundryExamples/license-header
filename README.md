@@ -971,6 +971,67 @@ jobs:
 4. **Pin Python version** (e.g., `3.11`) for reproducibility
 5. **Cache dependencies** to speed up workflow execution
 
+## Testing
+
+The test suite validates all core functionality including multi-language support, header detection, and upgrade workflows.
+
+### Running Tests
+
+```bash
+# Install development dependencies
+pip install -e ".[dev]"
+
+# Run all tests
+pytest
+
+# Run tests with verbose output
+pytest -v
+
+# Run tests with coverage report
+pytest --cov=license_header --cov-report=term-missing
+
+# Run specific test file
+pytest tests/test_apply.py
+
+# Run specific test class
+pytest tests/test_apply.py::TestMultiLanguageCommentStyles
+
+# Run tests excluding slow tests
+pytest -m "not slow"
+```
+
+### Test Categories
+
+The test suite covers:
+
+| Category | Description | Test Files |
+|----------|-------------|------------|
+| **Apply** | Header insertion, idempotency, shebang preservation | `test_apply.py` |
+| **Check** | Header detection, compliance validation | `test_check.py` |
+| **Scanner** | File discovery, binary detection, exclude patterns | `test_scanner.py` |
+| **CLI** | Command-line interface, argument parsing | `test_cli.py` |
+| **Languages** | Comment style wrapping, multi-language support | `test_languages.py` |
+| **Config** | Configuration loading, validation, merging | `test_config.py` |
+| **Reports** | JSON/Markdown report generation | `test_reports.py` |
+
+### Test Fixtures
+
+Tests use `pytest`'s `tmp_path` fixture for creating temporary test directories. This ensures:
+
+- **Isolation**: Each test runs in its own temporary directory
+- **Cleanup**: Temporary files are automatically removed after tests
+- **Cross-platform**: Works consistently on Linux, macOS, and Windows
+
+### Adding New Tests
+
+When adding tests for new functionality:
+
+1. Use `tmp_path` fixture for file system operations
+2. Test both success and error cases
+3. Verify idempotency where applicable
+4. Test edge cases (empty files, large files, special characters)
+5. For multi-language features, test all supported extensions
+
 ## Development Status
 
 This project is under active development. All core features are implemented and tested.

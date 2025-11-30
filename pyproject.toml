@@ -29,10 +29,25 @@ license-header = "license_header.cli:main"
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.4.0",
-    "pytest-cov>=4.1.0",
+    # Pinned to stable minor versions for reproducibility (2025-11)
+    # pytest 8.3.x provides stable async support and improved assertion introspection
+    "pytest>=8.3.0,<9.0.0",
+    # pytest-cov 6.x aligns with coverage.py 7.x for accurate coverage reporting
+    "pytest-cov>=6.0.0,<7.0.0",
 ]
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["license_header*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+# Show extra test summary info and print stdout/stderr on failures
+addopts = "-v --tb=short"
+# Markers for categorizing tests
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]

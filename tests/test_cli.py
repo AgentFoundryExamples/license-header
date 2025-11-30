@@ -449,3 +449,269 @@ class TestUpgradeCommand:
             ])
             assert result.exit_code != 0
             assert '--from-header and --to-header cannot be the same file' in result.output
+    
+    def test_upgrade_multi_file_mixed_results(self):
+        """Test upgrade with multiple files having different statuses."""
+        with self.runner.isolated_filesystem():
+            # Create headers
+            Path('OLD_HEADER.txt').write_text('# Old Copyright\n')
+            Path('NEW_HEADER.txt').write_text('New Copyright\n')
+            
+            # Create file with old header (will be upgraded)
+            Path('file1.py').write_text('# Old Copyright\ndef f1(): pass\n')
+            
+            # Create file already with new header (will be skipped)
+            Path('file2.py').write_text('# New Copyright\ndef f2(): pass\n')
+            
+            # Create file without any header (no source)
+            Path('file3.py').write_text('def f3(): pass\n')
+            
+            result = self.runner.invoke(main, [
+                'upgrade',
+                '--from-header', 'OLD_HEADER.txt',
+                '--to-header', 'NEW_HEADER.txt'
+            ])
+            
+            assert result.exit_code == 0
+            assert 'Upgraded: 1' in result.output
+            assert 'Already target: 1' in result.output
+            assert 'No source header: 1' in result.output
+    
+    def test_upgrade_preserves_shebang(self):
+        """Test that upgrade preserves shebang lines."""
+        with self.runner.isolated_filesystem():
+            Path('OLD_HEADER.txt').write_text('# Old Copyright\n')
+            Path('NEW_HEADER.txt').write_text('New Copyright\n')
+            
+            # Create file with shebang and old header
+            Path('script.py').write_text('#!/usr/bin/env python\n# Old Copyright\nprint("hi")\n')
+            
+            result = self.runner.invoke(main, [
+                'upgrade',
+                '--from-header', 'OLD_HEADER.txt',
+                '--to-header', 'NEW_HEADER.txt'
+            ])
+            
+            assert result.exit_code == 0
+            content = Path('script.py').read_text()
+            assert content.startswith('#!/usr/bin/env python\n')
+            assert '# New Copyright' in content
+    
+    def test_upgrade_with_extension_filter(self):
+        """Test upgrade with extension filtering."""
+        with self.runner.isolated_filesystem():
+            Path('OLD_HEADER.txt').write_text('# Old Copyright\n')
+            Path('NEW_HEADER.txt').write_text('New Copyright\n')
+            
+            # Create Python file (should be upgraded)
+            Path('file.py').write_text('# Old Copyright\ncode\n')
+            
+            # Create JS file (should be skipped due to extension filter)
+            Path('file.js').write_text('// Old Copyright\ncode\n')
+            
+            result = self.runner.invoke(main, [
+                'upgrade',
+                '--from-header', 'OLD_HEADER.txt',
+                '--to-header', 'NEW_HEADER.txt',
+                '--include-extension', '.py'
+            ])
+            
+            assert result.exit_code == 0
+            # Python file should be upgraded
+            assert '# New Copyright' in Path('file.py').read_text()
+            # JS file should be unchanged
+            assert '// Old Copyright' in Path('file.js').read_text()
+    
+    def test_upgrade_reports_json_structure(self):
+        """Test that upgrade reports have correct JSON structure."""
+        with self.runner.isolated_filesystem():
+            import json
+            
+            Path('OLD_HEADER.txt').write_text('# Old Copyright\n')
+            Path('NEW_HEADER.txt').write_text('New Copyright\n')
+            Path('test.py').write_text('# Old Copyright\ncode\n')
+            
+            result = self.runner.invoke(main, [
+                'upgrade',
+                '--from-header', 'OLD_HEADER.txt',
+                '--to-header', 'NEW_HEADER.txt',
+                '--output', 'reports'
+            ])
+            
+            assert result.exit_code == 0
+            
+            # Check JSON report structure
+            json_path = Path('reports/license-header-upgrade-report.json')
+            assert json_path.exists()
+            
+            with open(json_path) as f:
+                report = json.load(f)
+            
+            assert 'timestamp' in report
+            assert report['mode'] == 'upgrade'
+            assert 'summary' in report
+            assert 'files' in report
+            
+            # Check summary fields
+            summary = report['summary']
+            assert 'upgraded' in summary
+            assert 'already_target' in summary
+            assert 'no_source_header' in summary
+    
+    def test_upgrade_reports_markdown_content(self):
+        """Test that upgrade reports have correct Markdown content."""
+        with self.runner.isolated_filesystem():
+            Path('OLD_HEADER.txt').write_text('# Old Copyright\n')
+            Path('NEW_HEADER.txt').write_text('New Copyright\n')
+            Path('test.py').write_text('# Old Copyright\ncode\n')
+            
+            result = self.runner.invoke(main, [
+                'upgrade',
+                '--from-header', 'OLD_HEADER.txt',
+                '--to-header', 'NEW_HEADER.txt',
+                '--output', 'reports'
+            ])
+            
+            assert result.exit_code == 0
+            
+            # Check Markdown report content
+            md_path = Path('reports/license-header-upgrade-report.md')
+            assert md_path.exists()
+            
+            content = md_path.read_text()
+            assert '# License Header Upgrade Report' in content
+            assert 'Summary' in content
+            assert 'Upgraded' in content
+
+
+class TestCheckCommandExtended:
+    """Extended tests for check command."""
+    
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.runner = CliRunner()
+    
+    def test_check_fails_on_missing_header(self):
+        """Test that check fails when files are missing headers."""
+        with self.runner.isolated_filesystem():
+            Path('HEADER.txt').write_text('# Copyright 2025\n')
+            Path('missing.py').write_text('print("no header")\n')
+            
+            result = self.runner.invoke(main, ['check', '--header', 'HEADER.txt'])
+            assert result.exit_code == 1
+            assert 'Non-compliant: 1' in result.output
+    
+    def test_check_succeeds_on_compliant_files(self):
+        """Test that check succeeds when all files have headers."""
+        with self.runner.isolated_filesystem():
+            Path('HEADER.txt').write_text('# Copyright 2025\n')
+            Path('compliant.py').write_text('# Copyright 2025\nprint("has header")\n')
+            
+            result = self.runner.invoke(main, ['check', '--header', 'HEADER.txt'])
+            assert result.exit_code == 0
+            assert 'Compliant: 1' in result.output
+    
+    def test_check_with_multi_language_headers(self):
+        """Test check with different language comment styles."""
+        with self.runner.isolated_filesystem():
+            Path('HEADER.txt').write_text('Copyright 2025\n')
+            
+            # Create compliant files with correct comment styles
+            Path('test.py').write_text('# Copyright 2025\ncode\n')
+            Path('test.js').write_text('// Copyright 2025\ncode\n')
+            
+            result = self.runner.invoke(main, ['check', '--header', 'HEADER.txt'])
+            assert result.exit_code == 0
+            assert 'Compliant: 2' in result.output
+    
+    def test_check_output_reports(self):
+        """Test check command with output reports."""
+        with self.runner.isolated_filesystem():
+            Path('HEADER.txt').write_text('# Copyright 2025\n')
+            Path('test.py').write_text('# Copyright 2025\ncode\n')
+            
+            result = self.runner.invoke(main, [
+                'check', '--header', 'HEADER.txt', '--output', 'reports'
+            ])
+            
+            assert result.exit_code == 0
+            assert Path('reports/license-header-check-report.json').exists()
+            assert Path('reports/license-header-check-report.md').exists()
+
+
+class TestApplyCommandExtended:
+    """Extended tests for apply command."""
+    
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.runner = CliRunner()
+    
+    def test_apply_multi_language_correct_wrapping(self):
+        """Test apply wraps headers correctly for multiple languages."""
+        with self.runner.isolated_filesystem():
+            Path('HEADER.txt').write_text('Copyright 2025\n')
+            
+            Path('test.py').write_text('code\n')
+            Path('test.js').write_text('code\n')
+            Path('test.rs').write_text('code\n')
+            
+            result = self.runner.invoke(main, ['apply', '--header', 'HEADER.txt'])
+            assert result.exit_code == 0
+            
+            # Verify correct comment styles
+            assert '# Copyright 2025' in Path('test.py').read_text()
+            assert '// Copyright 2025' in Path('test.js').read_text()
+            assert '// Copyright 2025' in Path('test.rs').read_text()
+    
+    def test_apply_dry_run_shows_would_modify(self):
+        """Test apply dry-run shows files that would be modified."""
+        with self.runner.isolated_filesystem():
+            Path('HEADER.txt').write_text('# Copyright 2025\n')
+            Path('needs_header.py').write_text('print("hello")\n')
+            Path('has_header.py').write_text('# Copyright 2025\nprint("hello")\n')
+            
+            result = self.runner.invoke(main, [
+                'apply', '--header', 'HEADER.txt', '--dry-run'
+            ])
+            
+            assert result.exit_code == 0
+            assert '[DRY RUN]' in result.output
+            assert 'Added: 1' in result.output
+            assert 'Compliant: 1' in result.output
+            
+            # File should NOT be modified
+            assert 'Copyright' not in Path('needs_header.py').read_text()
+    
+    def test_apply_idempotent_multiple_runs(self):
+        """Test that apply is idempotent across multiple runs."""
+        with self.runner.isolated_filesystem():
+            Path('HEADER.txt').write_text('# Copyright 2025\n')
+            Path('test.py').write_text('print("hello")\n')
+            
+            # First run
+            result1 = self.runner.invoke(main, ['apply', '--header', 'HEADER.txt'])
+            assert result1.exit_code == 0
+            content1 = Path('test.py').read_text()
+            
+            # Second run
+            result2 = self.runner.invoke(main, ['apply', '--header', 'HEADER.txt'])
+            assert result2.exit_code == 0
+            content2 = Path('test.py').read_text()
+            
+            # Content should be identical
+            assert content1 == content2
+            assert 'Compliant: 1' in result2.output
+    
+    def test_apply_output_reports(self):
+        """Test apply command with output reports."""
+        with self.runner.isolated_filesystem():
+            Path('HEADER.txt').write_text('# Copyright 2025\n')
+            Path('test.py').write_text('print("hello")\n')
+            
+            result = self.runner.invoke(main, [
+                'apply', '--header', 'HEADER.txt', '--output', 'reports'
+            ])
+            
+            assert result.exit_code == 0
+            assert Path('reports/license-header-apply-report.json').exists()
+            assert Path('reports/license-header-apply-report.md').exists()
