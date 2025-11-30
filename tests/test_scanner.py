@@ -624,3 +624,83 @@ class TestScanRepository:
         # Should find the file
         assert len(result.eligible_files) == 1
         assert 'file.py' in str(result.eligible_files[0])
+
+
+class TestAllSupportedLanguages:
+    """Test scanning for all supported language file types."""
+    
+    def test_scan_all_language_extensions(self, tmp_path):
+        """Test that scanner finds files for all supported language extensions."""
+        # All extensions that are typically supported for license headers
+        extensions = [
+            # Python
+            '.py', '.pyi', '.pyw',
+            # C/C++
+            '.c', '.h', '.cpp', '.hpp', '.cc', '.hh', '.cxx', '.hxx',
+            # C#
+            '.cs',
+            # Java
+            '.java',
+            # JavaScript/TypeScript
+            '.js', '.mjs', '.cjs', '.ts', '.mts', '.cts', '.tsx',
+            # Rust
+            '.rs',
+        ]
+        
+        # Create a file for each extension
+        for ext in extensions:
+            filename = f'test_file{ext}'
+            (tmp_path / filename).write_text(f'// Sample content for {ext}\n')
+        
+        result = scan_repository(
+            root_path=tmp_path,
+            include_extensions=extensions,
+            exclude_patterns=[],
+            repo_root=tmp_path,
+        )
+        
+        # Should find all files
+        assert len(result.eligible_files) == len(extensions)
+        
+        # Verify each extension is represented
+        found_extensions = {f.suffix.lower() for f in result.eligible_files}
+        assert found_extensions == {ext.lower() for ext in extensions}
+    
+    def test_scan_mixed_languages_deterministic(self, tmp_path):
+        """Test that scanning mixed languages produces deterministic ordering."""
+        # Create files with different languages in random order
+        files = [
+            ('main.py', '# Python'),
+            ('app.js', '// JavaScript'),
+            ('lib.rs', '// Rust'),
+            ('Test.java', '// Java'),
+            ('util.c', '// C'),
+            ('app.ts', '// TypeScript'),
+            ('Model.cs', '// C#'),
+        ]
+        
+        for filename, content in files:
+            (tmp_path / filename).write_text(content + '\n')
+        
+        # Scan multiple times to verify determinism
+        results = []
+        for _ in range(3):
+            result = scan_repository(
+                root_path=tmp_path,
+                include_extensions=['.py', '.js', '.rs', '.java', '.c', '.ts', '.cs'],
+                exclude_patterns=[],
+                repo_root=tmp_path,
+            )
+            results.append([str(f) for f in result.eligible_files])
+        
+        # All scans should produce identical results
+        assert results[0] == results[1] == results[2]
+        
+        # Results should be sorted alphabetically
+        filenames = [f.name for f in scan_repository(
+            root_path=tmp_path,
+            include_extensions=['.py', '.js', '.rs', '.java', '.c', '.ts', '.cs'],
+            exclude_patterns=[],
+            repo_root=tmp_path,
+        ).eligible_files]
+        assert filenames == sorted(filenames)

@@ -253,3 +253,170 @@ class TestCheckHeaders:
             assert len(result.compliant_files) == 0
             assert len(result.non_compliant_files) == 0
             assert result.is_compliant() is True
+
+
+class TestCheckMultiLanguage:
+    """Test check functionality with multiple language comment styles."""
+    
+    def test_check_python_hash_comments(self):
+        """Test checking Python files with hash comments."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            
+            # Create raw header (V2 format)
+            header = 'Copyright 2025\n'
+            header_file = tmpdir_path / 'HEADER.txt'
+            header_file.write_text(header)
+            
+            # Create Python file with properly wrapped header
+            (tmpdir_path / 'test.py').write_text('# Copyright 2025\nprint("hello")\n')
+            
+            config = Config(header_file=str(header_file))
+            config._repo_root = tmpdir_path
+            config._header_content = header
+            config.path = '.'
+            config.include_extensions = ['.py']
+            config.exclude_paths = []
+            config.wrap_comments = True
+            
+            result = check_headers(config)
+            
+            assert len(result.compliant_files) == 1
+            assert result.is_compliant() is True
+    
+    def test_check_javascript_slash_comments(self):
+        """Test checking JavaScript files with slash comments."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            
+            header = 'Copyright 2025\n'
+            header_file = tmpdir_path / 'HEADER.txt'
+            header_file.write_text(header)
+            
+            # Create JS file with properly wrapped header
+            (tmpdir_path / 'app.js').write_text('// Copyright 2025\nconsole.log("hi");\n')
+            
+            config = Config(header_file=str(header_file))
+            config._repo_root = tmpdir_path
+            config._header_content = header
+            config.path = '.'
+            config.include_extensions = ['.js']
+            config.exclude_paths = []
+            config.wrap_comments = True
+            
+            result = check_headers(config)
+            
+            assert len(result.compliant_files) == 1
+            assert result.is_compliant() is True
+    
+    def test_check_mixed_languages_all_compliant(self):
+        """Test checking multiple languages with correct comment styles."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            
+            header = 'Copyright 2025\n'
+            header_file = tmpdir_path / 'HEADER.txt'
+            header_file.write_text(header)
+            
+            # Create files with correct comment styles for each language
+            (tmpdir_path / 'test.py').write_text('# Copyright 2025\ncode\n')
+            (tmpdir_path / 'app.js').write_text('// Copyright 2025\ncode\n')
+            (tmpdir_path / 'main.c').write_text('// Copyright 2025\ncode\n')
+            (tmpdir_path / 'lib.rs').write_text('// Copyright 2025\ncode\n')
+            
+            config = Config(header_file=str(header_file))
+            config._repo_root = tmpdir_path
+            config._header_content = header
+            config.path = '.'
+            config.include_extensions = ['.py', '.js', '.c', '.rs']
+            config.exclude_paths = []
+            config.wrap_comments = True
+            
+            result = check_headers(config)
+            
+            assert len(result.compliant_files) == 4
+            assert result.is_compliant() is True
+    
+    def test_check_wrong_comment_style_non_compliant(self):
+        """Test that files with wrong comment style are non-compliant."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            
+            header = 'Copyright 2025\n'
+            header_file = tmpdir_path / 'HEADER.txt'
+            header_file.write_text(header)
+            
+            # Create Python file with WRONG comment style (slash instead of hash)
+            (tmpdir_path / 'test.py').write_text('// Copyright 2025\ncode\n')
+            
+            config = Config(header_file=str(header_file))
+            config._repo_root = tmpdir_path
+            config._header_content = header
+            config.path = '.'
+            config.include_extensions = ['.py']
+            config.exclude_paths = []
+            config.wrap_comments = True
+            
+            result = check_headers(config)
+            
+            # Should be non-compliant because Python needs # not //
+            assert len(result.non_compliant_files) == 1
+            assert result.is_compliant() is False
+
+
+class TestCheckWithShebang:
+    """Test check functionality with shebang lines."""
+    
+    def test_check_python_with_shebang_compliant(self):
+        """Test that Python file with shebang and correct header is compliant."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            
+            # Use raw header (V2 format) - the check will wrap it for comparison
+            header = 'Copyright 2025\n'
+            header_file = tmpdir_path / 'HEADER.txt'
+            header_file.write_text(header)
+            
+            # Create file with shebang then wrapped header
+            (tmpdir_path / 'script.py').write_text(
+                '#!/usr/bin/env python3\n# Copyright 2025\nprint("hi")\n'
+            )
+            
+            config = Config(header_file=str(header_file))
+            config._repo_root = tmpdir_path
+            config._header_content = header
+            config.path = '.'
+            config.include_extensions = ['.py']
+            config.exclude_paths = []
+            config.wrap_comments = True  # Explicitly True for clarity
+            
+            result = check_headers(config)
+            
+            assert len(result.compliant_files) == 1
+            assert result.is_compliant() is True
+    
+    def test_check_shebang_without_header_non_compliant(self):
+        """Test that file with shebang but no header is non-compliant."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            
+            header = '# Copyright 2025\n'
+            header_file = tmpdir_path / 'HEADER.txt'
+            header_file.write_text(header)
+            
+            # Create file with only shebang, no header
+            (tmpdir_path / 'script.py').write_text(
+                '#!/usr/bin/env python3\nprint("hi")\n'
+            )
+            
+            config = Config(header_file=str(header_file))
+            config._repo_root = tmpdir_path
+            config._header_content = header
+            config.path = '.'
+            config.include_extensions = ['.py']
+            config.exclude_paths = []
+            
+            result = check_headers(config)
+            
+            assert len(result.non_compliant_files) == 1
+            assert result.is_compliant() is False
