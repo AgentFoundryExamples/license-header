@@ -265,8 +265,15 @@ def is_header_already_wrapped(header_text: str) -> bool:
     if not header_text:
         return False
     
-    # Get first non-empty line
-    first_line = header_text.lstrip().split('\n')[0].strip()
+    # Find first non-empty line using splitlines
+    lines = header_text.splitlines()
+    first_line = None
+    for line in lines:
+        stripped = line.strip()
+        if stripped:
+            first_line = stripped
+            break
+    
     if not first_line:
         return False
     
@@ -421,19 +428,23 @@ def detect_header_comment_style(
     if known_styles is None:
         known_styles = [PYTHON_STYLE, C_STYLE, RUST_STYLE]
     
-    first_lines = content.lstrip().split('\n')[:10]  # Check first 10 lines
+    first_lines = content.lstrip().splitlines()[:10]  # Check first 10 lines
     if not first_lines:
         return None
     
-    first_line = first_lines[0].strip()
+    first_line = first_lines[0]
     
     for style in known_styles:
-        # Check for block comment start
-        if style.block_start and first_line.startswith(style.block_start.strip()):
+        # Check for block comment start (use full prefix for exact matching)
+        if style.block_start and first_line.lstrip().startswith(style.block_start):
             return style
         
-        # Check for line comment prefix
-        if style.line_prefix and first_line.startswith(style.line_prefix.strip()):
+        # Check for line comment prefix (use full prefix to avoid false positives)
+        if style.line_prefix and first_line.startswith(style.line_prefix):
+            return style
+        
+        # Also check without leading space (for lines that just have the comment marker)
+        if style.line_prefix and first_line.startswith(style.line_prefix.rstrip()):
             return style
     
     return None
