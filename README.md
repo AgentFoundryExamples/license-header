@@ -37,7 +37,7 @@ pip install -e ".[dev]"
 
 ## Usage
 
-The CLI provides two main commands: `apply` and `check`.
+The CLI provides three main commands: `apply`, `check`, and `upgrade`.
 
 ### Quick Start
 
@@ -79,6 +79,9 @@ license-header apply --dry-run
 
 # Apply headers
 license-header apply
+
+# Upgrade from old header format to new (see Upgrade Command section)
+license-header upgrade --from-header OLD_HEADER --to-header NEW_HEADER --dry-run
 ```
 
 ### Apply License Headers
@@ -187,6 +190,108 @@ Summary:
   Skipped: 50           # Binary, excluded, symlink, and other skipped files
   Failed: 0             # Files that couldn't be read
 ```
+
+### Upgrade License Headers
+
+The `upgrade` command provides a safe, deterministic workflow for transitioning repositories from legacy V1 headers (with embedded comment markers) or older V2 headers to the new V2 format.
+
+#### Why Upgrade?
+
+V1 headers contain embedded comment markers in the header file itself (e.g., `# Copyright...`), which causes issues with multi-language repositories. The V2 format stores raw license text without comment markers, allowing the tool to automatically wrap headers with the appropriate comment syntax for each file type.
+
+#### Basic Usage
+
+```bash
+# Preview what would be upgraded (ALWAYS run this first)
+license-header upgrade --from-header OLD_HEADER.txt --to-header NEW_HEADER.txt --dry-run
+
+# Perform the actual upgrade
+license-header upgrade --from-header OLD_HEADER.txt --to-header NEW_HEADER.txt
+
+# Upgrade with reports
+license-header upgrade --from-header OLD_HEADER.txt --to-header NEW_HEADER.txt --output reports/
+```
+
+#### Required Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `--from-header` | **Required.** Path to the source header file to replace. Can be a V1 header (with comment markers) or an older V2 raw header. |
+| `--to-header` | **Required.** Path to the target V2 header file (raw license text without comment markers). |
+
+#### Optional Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `--path` | Path to scan for files (default: current directory) |
+| `--output` | Directory to save JSON and Markdown reports |
+| `--include-extension` | File extensions to include (can be specified multiple times) |
+| `--exclude-path` | Paths/patterns to exclude (can be specified multiple times) |
+| `--dry-run` | Preview changes without modifying files |
+| `--fallback-comment-style` | Comment style for unknown file types (`hash`, `slash`, `none`) |
+| `--use-block-comments` | Use block comments (`/* */`) instead of line comments |
+
+#### Upgrade Behavior
+
+1. **Files with source header**: The old header is removed and replaced with the new header, wrapped in appropriate comment syntax.
+2. **Files already with target header**: Skipped with a clear message.
+3. **Files without source header**: Reported but not modified.
+4. **Partial/corrupted headers**: Raise actionable errors rather than silently mutating files.
+
+#### Safety Considerations
+
+⚠️ **IMPORTANT**: Always run with `--dry-run` first to preview changes.
+
+- The upgrade command requires explicit `--from-header` and `--to-header` arguments to prevent accidental modifications.
+- Files are modified atomically to prevent partial writes.
+- Original file permissions are preserved.
+- Detailed reports (JSON and Markdown) can be generated for audit purposes.
+
+#### Summary Counters
+
+The upgrade command prints deterministic summary counters to the console:
+
+```
+Summary:
+  Scanned: 150          # Total files scanned (eligible + skipped)
+  Upgraded: 10          # Files that were upgraded
+  Already target: 50    # Files already with target header (skipped)
+  No source header: 40  # Files without source header (not modified)
+  Skipped: 50           # Binary, excluded, symlink, and other skipped files
+  Failed: 0             # Files that couldn't be processed
+```
+
+#### Example: Migrating from V1 to V2
+
+**Step 1**: Create your old V1 header file (copy your existing header):
+
+```
+# OLD_HEADER.txt (V1 format with comment markers)
+# Copyright 2024 My Company
+# Licensed under MIT
+```
+
+**Step 2**: Create your new V2 header file (raw text without comment markers):
+
+```
+# NEW_HEADER.txt (V2 format without comment markers)
+Copyright 2025 My Company
+Licensed under Apache 2.0
+```
+
+**Step 3**: Preview the upgrade:
+
+```bash
+license-header upgrade --from-header OLD_HEADER.txt --to-header NEW_HEADER.txt --dry-run
+```
+
+**Step 4**: Perform the upgrade:
+
+```bash
+license-header upgrade --from-header OLD_HEADER.txt --to-header NEW_HEADER.txt --output reports/
+```
+
+**Step 5**: Verify the results in the generated reports or by running `license-header check`.
 
 ## Multi-Language Comment Wrapping
 
@@ -816,6 +921,9 @@ This project is under active development. All core features are implemented and 
 - ✅ JSON and Markdown report generation
 - ✅ Deterministic summary counters
 - ✅ GitHub Actions integration examples
+- ✅ Header transition/upgrade command for V1 to V2 migration
+- ✅ Comment marker stripping and normalized body comparison for header detection
+- ✅ Upgrade reports (JSON and Markdown) with detailed file status
 
 ### Known Limitations
 

@@ -26,11 +26,18 @@ from pathlib import Path
 
 from license_header.apply import (
     ApplyResult,
+    UpgradeResult,
     normalize_header,
     has_header,
     insert_header,
     apply_header_to_file,
     apply_headers,
+    strip_comment_markers,
+    normalize_body_for_comparison,
+    detect_header_in_content,
+    remove_header_from_content,
+    upgrade_header_in_content,
+    upgrade_header_in_file,
 )
 from license_header.config import merge_config
 from license_header.utils import (
@@ -953,3 +960,275 @@ class TestApplyHeaders:
                 i += 1
         
         assert bom_count == 1, f"Expected 1 BOM, found {bom_count}"
+
+
+# ============================================================
+# Tests for Transition / Upgrade Functions
+# ============================================================
+
+
+class TestUpgradeResult:
+    """Test UpgradeResult dataclass."""
+    
+    def test_upgrade_result_defaults(self):
+        """Test that UpgradeResult initializes with empty lists."""
+        result = UpgradeResult()
+        assert result.upgraded_files == []
+        assert result.already_target == []
+        assert result.no_source_header == []
+        assert result.skipped_files == []
+        assert result.failed_files == []
+        assert result.error_messages == {}
+    
+    def test_total_processed(self):
+        """Test total_processed calculation."""
+        result = UpgradeResult()
+        assert result.total_processed() == 0
+        
+        result.upgraded_files = [Path('a.py'), Path('b.py')]
+        result.already_target = [Path('c.py')]
+        result.no_source_header = [Path('d.py')]
+        result.skipped_files = [Path('e.bin')]
+        result.failed_files = [Path('f.py')]
+        assert result.total_processed() == 6
+
+
+class TestStripCommentMarkers:
+    """Test strip_comment_markers function."""
+    
+    def test_strip_hash_comments(self):
+        """Test stripping hash-style line comments."""
+        text = "# Copyright 2025\n# Licensed under MIT\n"
+        result = strip_comment_markers(text)
+        assert "Copyright 2025" in result
+        assert "Licensed under MIT" in result
+        assert "#" not in result
+    
+    def test_strip_slash_comments(self):
+        """Test stripping slash-style line comments."""
+        text = "// Copyright 2025\n// Licensed under MIT\n"
+        result = strip_comment_markers(text)
+        assert "Copyright 2025" in result
+        assert "Licensed under MIT" in result
+        assert "//" not in result
+    
+    def test_strip_block_comments(self):
+        """Test stripping block comments."""
+        text = "/*\n * Copyright 2025\n * Licensed under MIT\n */"
+        result = strip_comment_markers(text)
+        assert "Copyright 2025" in result
+        assert "Licensed under MIT" in result
+        assert "/*" not in result
+        assert "*/" not in result
+    
+    def test_strip_single_line_block_comment(self):
+        """Test stripping single-line block comments like /* ... */."""
+        text = "/* Copyright 2025 */"
+        result = strip_comment_markers(text)
+        assert "Copyright 2025" in result
+        assert "/*" not in result
+        assert "*/" not in result
+    
+    def test_strip_raw_text(self):
+        """Test that raw text without comments is returned as-is."""
+        text = "Copyright 2025\nLicensed under MIT\n"
+        result = strip_comment_markers(text)
+        assert "Copyright 2025" in result
+        assert "Licensed under MIT" in result
+    
+    def test_strip_empty_string(self):
+        """Test stripping from empty string."""
+        assert strip_comment_markers("") == ""
+
+
+class TestNormalizeBodyForComparison:
+    """Test normalize_body_for_comparison function."""
+    
+    def test_normalize_hash_comments(self):
+        """Test normalizing header with hash comments."""
+        text = "# Copyright 2025\n# Licensed under MIT\n"
+        result = normalize_body_for_comparison(text)
+        assert "copyright 2025" in result
+        assert "licensed under mit" in result
+    
+    def test_normalize_raw_text(self):
+        """Test normalizing raw text."""
+        text = "Copyright 2025\nLicensed under MIT\n"
+        result = normalize_body_for_comparison(text)
+        assert "copyright 2025" in result
+        assert "licensed under mit" in result
+    
+    def test_same_content_different_comment_styles(self):
+        """Test that same content with different comment styles normalizes equally."""
+        hash_style = "# Copyright 2025\n# Licensed under MIT\n"
+        slash_style = "// Copyright 2025\n// Licensed under MIT\n"
+        raw_style = "Copyright 2025\nLicensed under MIT\n"
+        
+        assert normalize_body_for_comparison(hash_style) == normalize_body_for_comparison(slash_style)
+        assert normalize_body_for_comparison(hash_style) == normalize_body_for_comparison(raw_style)
+
+
+class TestDetectHeaderInContent:
+    """Test detect_header_in_content function."""
+    
+    def test_detect_exact_match(self):
+        """Test detecting exact header match."""
+        header = "# Copyright 2025\n"
+        content = "# Copyright 2025\ndef hello():\n    pass\n"
+        found, start, end = detect_header_in_content(content, header)
+        assert found is True
+        assert start == 0
+        assert end > 0
+    
+    def test_detect_with_shebang(self):
+        """Test detecting header after shebang."""
+        header = "# Copyright 2025\n"
+        content = "#!/usr/bin/env python\n# Copyright 2025\ndef hello():\n    pass\n"
+        found, start, end = detect_header_in_content(content, header)
+        assert found is True
+        assert start > 0  # After shebang
+    
+    def test_detect_not_found(self):
+        """Test when header is not found."""
+        header = "# Copyright 2025\n"
+        content = "def hello():\n    pass\n"
+        found, start, end = detect_header_in_content(content, header)
+        assert found is False
+        assert start == -1
+        assert end == -1
+    
+    def test_detect_v1_header_with_raw_target(self):
+        """Test detecting V1 header when given raw target text."""
+        raw_header = "Copyright 2025\nLicensed under MIT\n"
+        v1_content = "# Copyright 2025\n# Licensed under MIT\ndef hello():\n    pass\n"
+        found, start, end = detect_header_in_content(v1_content, raw_header)
+        assert found is True
+
+
+class TestRemoveHeaderFromContent:
+    """Test remove_header_from_content function."""
+    
+    def test_remove_hash_header(self):
+        """Test removing hash-style header."""
+        header = "# Copyright 2025\n"
+        content = "# Copyright 2025\ndef hello():\n    pass\n"
+        new_content, was_removed = remove_header_from_content(content, header)
+        assert was_removed is True
+        assert "Copyright 2025" not in new_content
+        assert "def hello()" in new_content
+    
+    def test_remove_header_not_found(self):
+        """Test when header to remove is not found."""
+        header = "# Different Header\n"
+        content = "# Copyright 2025\ndef hello():\n    pass\n"
+        new_content, was_removed = remove_header_from_content(content, header)
+        assert was_removed is False
+        assert new_content == content
+
+
+class TestUpgradeHeaderInContent:
+    """Test upgrade_header_in_content function."""
+    
+    def test_upgrade_v1_to_v2(self):
+        """Test upgrading V1 header to V2."""
+        from_header = "# Old Copyright\n"
+        to_header = "# New Copyright\n"
+        content = "# Old Copyright\ndef hello():\n    pass\n"
+        
+        new_content, status = upgrade_header_in_content(content, from_header, to_header)
+        assert status == 'upgraded'
+        assert "# New Copyright" in new_content
+        assert "# Old Copyright" not in new_content
+    
+    def test_upgrade_already_target(self):
+        """Test that files with target header are skipped."""
+        from_header = "# Old Copyright\n"
+        to_header = "# New Copyright\n"
+        content = "# New Copyright\ndef hello():\n    pass\n"
+        
+        new_content, status = upgrade_header_in_content(content, from_header, to_header)
+        assert status == 'already_target'
+        assert new_content == content
+    
+    def test_upgrade_no_source(self):
+        """Test when source header is not found."""
+        from_header = "# Old Copyright\n"
+        to_header = "# New Copyright\n"
+        content = "def hello():\n    pass\n"
+        
+        new_content, status = upgrade_header_in_content(content, from_header, to_header)
+        assert status == 'no_source'
+        assert new_content == content
+
+
+class TestUpgradeHeaderInFile:
+    """Test upgrade_header_in_file function."""
+    
+    def test_upgrade_file(self, tmp_path):
+        """Test upgrading header in a file."""
+        file_path = tmp_path / "test.py"
+        file_path.write_text("# Old Copyright\ndef hello():\n    pass\n")
+        
+        from_header = "# Old Copyright\n"
+        to_header = "# New Copyright\n"
+        
+        status = upgrade_header_in_file(file_path, from_header, to_header)
+        assert status == 'upgraded'
+        
+        content = file_path.read_text()
+        assert "# New Copyright" in content
+        assert "# Old Copyright" not in content
+    
+    def test_upgrade_file_dry_run(self, tmp_path):
+        """Test dry-run mode doesn't modify file."""
+        file_path = tmp_path / "test.py"
+        original_content = "# Old Copyright\ndef hello():\n    pass\n"
+        file_path.write_text(original_content)
+        
+        from_header = "# Old Copyright\n"
+        to_header = "# New Copyright\n"
+        
+        status = upgrade_header_in_file(file_path, from_header, to_header, dry_run=True)
+        assert status == 'upgraded'
+        
+        # File should not be modified
+        content = file_path.read_text()
+        assert content == original_content
+    
+    def test_upgrade_file_already_target(self, tmp_path):
+        """Test file already with target header."""
+        file_path = tmp_path / "test.py"
+        file_path.write_text("# New Copyright\ndef hello():\n    pass\n")
+        
+        from_header = "# Old Copyright\n"
+        to_header = "# New Copyright\n"
+        
+        status = upgrade_header_in_file(file_path, from_header, to_header)
+        assert status == 'already_target'
+    
+    def test_upgrade_file_no_source(self, tmp_path):
+        """Test file without source header."""
+        file_path = tmp_path / "test.py"
+        file_path.write_text("def hello():\n    pass\n")
+        
+        from_header = "# Old Copyright\n"
+        to_header = "# New Copyright\n"
+        
+        status = upgrade_header_in_file(file_path, from_header, to_header)
+        assert status == 'no_source'
+    
+    def test_upgrade_file_preserves_shebang(self, tmp_path):
+        """Test that shebang is preserved during upgrade."""
+        file_path = tmp_path / "test.py"
+        file_path.write_text("#!/usr/bin/env python\n# Old Copyright\ndef hello():\n    pass\n")
+        
+        from_header = "# Old Copyright\n"
+        to_header = "# New Copyright\n"
+        
+        status = upgrade_header_in_file(file_path, from_header, to_header)
+        assert status == 'upgraded'
+        
+        content = file_path.read_text()
+        assert content.startswith("#!/usr/bin/env python\n")
+        assert "# New Copyright" in content
+        assert "# Old Copyright" not in content
