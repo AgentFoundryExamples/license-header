@@ -20,15 +20,17 @@
 Apply module for license-header tool.
 
 Implements header insertion logic with idempotency, shebang preservation,
-and atomic file writes. Supports multi-language comment wrapping.
+and atomic file writes. Supports multi-language comment wrapping and
+header transition/upgrade functionality.
 """
 
 import logging
 import os
+import re
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from .config import Config, get_header_content
 from .languages import (
@@ -36,6 +38,10 @@ from .languages import (
     DEFAULT_FALLBACK_STYLE,
     get_comment_style_for_extension,
     wrap_header_with_comments,
+    unwrap_header_comments,
+    detect_header_comment_style,
+    PYTHON_STYLE,
+    C_STYLE,
 )
 from .scanner import scan_repository
 from .utils import (
@@ -452,3 +458,370 @@ def apply_headers(config: Config) -> ApplyResult:
     result.skipped_files.extend(scan_result.skipped_extension)
     
     return result
+
+
+# ============================================================
+# Header Transition / Upgrade Functions
+# ============================================================
+
+
+@dataclass
+class UpgradeResult:
+    """Result of upgrading headers in files."""
+    
+    upgraded_files: List[Path] = field(default_factory=list)
+    already_target: List[Path] = field(default_factory=list)
+    no_source_header: List[Path] = field(default_factory=list)
+    skipped_files: List[Path] = field(default_factory=list)
+    failed_files: List[Path] = field(default_factory=list)
+    error_messages: dict = field(default_factory=dict)  # Path -> error message
+    
+    def total_processed(self) -> int:
+        """Return total number of files processed."""
+        return (
+            len(self.upgraded_files)
+            + len(self.already_target)
+            + len(self.no_source_header)
+            + len(self.skipped_files)
+            + len(self.failed_files)
+        )
+
+
+def strip_comment_markers(text: str) -> str:
+    """
+    Strip comment markers from header text to get raw body.
+    
+    This is used to compare header content regardless of comment style.
+    Handles V1 headers (with embedded comment markers) and V2 headers.
+    
+    Args:
+        text: Header text that may have comment markers
+        
+    Returns:
+        Raw header text without comment markers
+    """
+    if not text:
+        return ''
+    
+    lines = text.strip().splitlines()
+    result_lines = []
+    in_block = False
+    
+    for line in lines:
+        stripped = line.strip()
+        
+        # Handle block comment markers
+        if stripped.startswith('/*'):
+            in_block = True
+            # Check if there's content after /*
+            rest = stripped[2:].strip()
+            if rest and not rest.startswith('*'):
+                result_lines.append(rest)
+            continue
+        
+        if stripped.endswith('*/') or stripped == '*/':
+            in_block = False
+            # Check if there's content before */
+            rest = stripped[:-2].strip()
+            if rest and rest != '*':
+                # Remove leading * if present
+                if rest.startswith('*'):
+                    rest = rest[1:].strip()
+                if rest:
+                    result_lines.append(rest)
+            continue
+        
+        if in_block:
+            # Remove block line prefix (e.g., ' * ')
+            if stripped.startswith('*'):
+                rest = stripped[1:].lstrip()
+                result_lines.append(rest)
+            else:
+                result_lines.append(stripped)
+            continue
+        
+        # Handle line comment prefixes
+        # Check for common prefixes in order of length (longer first)
+        prefixes = ['// ', '# ', '-- ', '; ', '//', '#', '--', ';']
+        found_prefix = False
+        for prefix in prefixes:
+            if stripped.startswith(prefix):
+                rest = stripped[len(prefix):]
+                result_lines.append(rest)
+                found_prefix = True
+                break
+        
+        if not found_prefix:
+            result_lines.append(stripped)
+    
+    return '\n'.join(result_lines).strip() + '\n' if result_lines else ''
+
+
+def normalize_body_for_comparison(text: str) -> str:
+    """
+    Normalize header body text for comparison.
+    
+    Strips comment markers, normalizes whitespace, and lowercases for
+    fuzzy matching during header detection.
+    
+    Args:
+        text: Header text to normalize
+        
+    Returns:
+        Normalized text for comparison
+    """
+    # Strip comment markers first
+    stripped = strip_comment_markers(text)
+    
+    # Normalize whitespace (collapse multiple spaces, trim lines)
+    lines = [' '.join(line.split()) for line in stripped.splitlines()]
+    
+    # Remove empty lines and join
+    non_empty = [line for line in lines if line]
+    
+    return '\n'.join(non_empty).strip().lower()
+
+
+def detect_header_in_content(
+    content: str,
+    header_text: str,
+    file_extension: str = '.py'
+) -> Tuple[bool, int, int]:
+    """
+    Detect if a header (or its body) is present in file content.
+    
+    This function can detect both V1 headers (with embedded comment markers)
+    and V2 headers (wrapped using language-specific comments).
+    
+    Args:
+        content: File content to search
+        header_text: Header text to look for (may have comment markers or not)
+        file_extension: File extension for determining expected comment style
+        
+    Returns:
+        Tuple of (found, start_pos, end_pos) where start_pos and end_pos
+        are character positions in content (0-indexed). Returns (False, -1, -1)
+        if header not found.
+    """
+    if not content or not header_text:
+        return (False, -1, -1)
+    
+    # Normalize header for comparison
+    header_body = normalize_body_for_comparison(header_text)
+    
+    # Extract shebang if present
+    shebang, remaining = extract_shebang(content)
+    start_offset = len(shebang) if shebang else 0
+    
+    # Try to find where the header ends
+    # Look for the first significant code line (not comment, not empty)
+    lines = remaining.splitlines(keepends=True)
+    header_end_idx = 0
+    potential_header_lines = []
+    
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        
+        # Skip empty lines
+        if not stripped:
+            header_end_idx += len(line)
+            potential_header_lines.append(line)
+            continue
+        
+        # Check if this looks like a comment
+        is_comment = any(stripped.startswith(p) for p in ['#', '//', '/*', '*', '--', ';', '<!--'])
+        
+        if is_comment:
+            header_end_idx += len(line)
+            potential_header_lines.append(line)
+        else:
+            # First non-comment, non-empty line - end of potential header
+            break
+    
+    # Extract potential header block
+    potential_header = ''.join(potential_header_lines)
+    
+    if not potential_header.strip():
+        return (False, -1, -1)
+    
+    # Normalize potential header
+    content_body = normalize_body_for_comparison(potential_header)
+    
+    # Compare
+    if header_body == content_body:
+        return (True, start_offset, start_offset + header_end_idx)
+    
+    # Also try exact match (for V2 headers)
+    normalized_header = normalize_header(header_text)
+    normalized_remaining = remaining.replace('\r\n', '\n')
+    
+    if normalized_remaining.startswith(normalized_header):
+        return (True, start_offset, start_offset + len(normalized_header))
+    
+    return (False, -1, -1)
+
+
+def remove_header_from_content(
+    content: str,
+    header_text: str,
+    file_extension: str = '.py'
+) -> Tuple[str, bool]:
+    """
+    Remove a header from file content.
+    
+    Args:
+        content: File content
+        header_text: Header to remove
+        file_extension: File extension for comment style detection
+        
+    Returns:
+        Tuple of (new_content, was_removed)
+    """
+    found, start_pos, end_pos = detect_header_in_content(
+        content, header_text, file_extension
+    )
+    
+    if not found:
+        return (content, False)
+    
+    # Extract shebang
+    shebang, remaining = extract_shebang(content)
+    
+    # Calculate position in remaining content
+    shebang_len = len(shebang) if shebang else 0
+    header_start = start_pos - shebang_len
+    header_end = end_pos - shebang_len
+    
+    # Remove header from remaining content
+    new_remaining = remaining[:header_start] + remaining[header_end:]
+    
+    # Trim leading whitespace from new_remaining, but preserve one newline
+    new_remaining = new_remaining.lstrip('\n')
+    
+    # Reconstruct content
+    if shebang:
+        new_content = shebang + new_remaining
+    else:
+        new_content = new_remaining
+    
+    return (new_content, True)
+
+
+def upgrade_header_in_content(
+    content: str,
+    from_header: str,
+    to_header: str,
+    file_extension: str = '.py'
+) -> Tuple[str, str]:
+    """
+    Upgrade header in file content from source to target.
+    
+    Args:
+        content: File content
+        from_header: Source header to remove (may be V1 or V2)
+        to_header: Target header to insert (should be V2 format)
+        file_extension: File extension for comment style detection
+        
+    Returns:
+        Tuple of (new_content, status) where status is one of:
+        - 'upgraded': Header was replaced
+        - 'already_target': File already has target header
+        - 'no_source': Source header not found
+        - 'error:message': An error occurred
+    """
+    # First check if file already has target header
+    if has_header(content, to_header):
+        return (content, 'already_target')
+    
+    # Try to find and remove source header
+    found, start_pos, end_pos = detect_header_in_content(
+        content, from_header, file_extension
+    )
+    
+    if not found:
+        return (content, 'no_source')
+    
+    # Remove source header
+    content_without_header, removed = remove_header_from_content(
+        content, from_header, file_extension
+    )
+    
+    if not removed:
+        return (content, 'error:Failed to remove source header')
+    
+    # Insert target header
+    new_content = insert_header(content_without_header, to_header)
+    
+    return (new_content, 'upgraded')
+
+
+def upgrade_header_in_file(
+    file_path: Path,
+    from_header: str,
+    to_header: str,
+    dry_run: bool = False
+) -> str:
+    """
+    Upgrade header in a single file.
+    
+    Args:
+        file_path: Path to file
+        from_header: Source header to replace
+        to_header: Target header to insert
+        dry_run: If True, don't actually modify the file
+        
+    Returns:
+        Status string: 'upgraded', 'already_target', 'no_source', or 'error:message'
+        
+    Raises:
+        OSError: If file cannot be read or written
+    """
+    try:
+        # Read file
+        content, bom, encoding = read_file_with_encoding(file_path)
+        
+        # Perform upgrade
+        new_content, status = upgrade_header_in_content(
+            content, from_header, to_header, file_path.suffix
+        )
+        
+        if status != 'upgraded':
+            return status
+        
+        if dry_run:
+            logger.info(f"[DRY RUN] Would upgrade header in: {file_path}")
+            return 'upgraded'
+        
+        # Write atomically using temporary file
+        temp_fd, temp_path = tempfile.mkstemp(
+            dir=file_path.parent,
+            prefix=f'.{file_path.name}.',
+            suffix='.tmp'
+        )
+        
+        try:
+            os.close(temp_fd)
+            write_file_with_encoding(Path(temp_path), new_content, bom, encoding)
+            
+            # Preserve permissions
+            try:
+                stat_info = os.stat(file_path)
+                os.chmod(temp_path, stat_info.st_mode)
+            except (OSError, AttributeError):
+                pass
+            
+            # Atomic rename
+            os.replace(temp_path, file_path)
+            logger.info(f"Upgraded header in: {file_path}")
+            return 'upgraded'
+            
+        except Exception as e:
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                pass
+            raise
+            
+    except (PermissionError, OSError, IOError, UnicodeDecodeError) as e:
+        logger.error(f"Error upgrading {file_path}: {e}")
+        return f'error:{e}'

@@ -19,7 +19,7 @@
 """
 Reports module for license-header tool.
 
-Provides JSON and Markdown report generation for apply and check operations.
+Provides JSON and Markdown report generation for apply, check, and upgrade operations.
 """
 
 import json
@@ -29,7 +29,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Union, Optional
 
-from .apply import ApplyResult
+from .apply import ApplyResult, UpgradeResult
 from .check import CheckResult
 
 logger = logging.getLogger(__name__)
@@ -65,18 +65,18 @@ def _format_file_list(files: List[Path], repo_root: Optional[Path] = None, limit
 
 
 def generate_json_report(
-    result: Union[ApplyResult, CheckResult],
+    result: Union[ApplyResult, CheckResult, UpgradeResult],
     output_path: Path,
     mode: str,
     repo_root: Optional[Path] = None
 ) -> None:
     """
-    Generate JSON report for apply or check operation.
+    Generate JSON report for apply, check, or upgrade operation.
     
     Args:
-        result: ApplyResult or CheckResult object
+        result: ApplyResult, CheckResult, or UpgradeResult object
         output_path: Path to write JSON report
-        mode: Operation mode ('apply' or 'check')
+        mode: Operation mode ('apply', 'check', or 'upgrade')
         repo_root: Repository root for relative path calculation
         
     Raises:
@@ -103,6 +103,31 @@ def generate_json_report(
                 'failed': _format_file_list(result.failed_files, repo_root),
             }
         }
+    elif mode == 'upgrade':
+        report_data = {
+            'timestamp': timestamp,
+            'mode': 'upgrade',
+            'summary': {
+                'scanned': result.total_processed(),
+                'upgraded': len(result.upgraded_files),
+                'already_target': len(result.already_target),
+                'no_source_header': len(result.no_source_header),
+                'skipped': len(result.skipped_files),
+                'failed': len(result.failed_files),
+            },
+            'files': {
+                'upgraded': _format_file_list(result.upgraded_files, repo_root),
+                'already_target': _format_file_list(result.already_target, repo_root),
+                'no_source_header': _format_file_list(result.no_source_header, repo_root),
+                'skipped': _format_file_list(result.skipped_files, repo_root),
+                'failed': _format_file_list(result.failed_files, repo_root),
+            }
+        }
+        # Add error messages if present
+        if result.error_messages:
+            report_data['errors'] = {
+                str(path): msg for path, msg in result.error_messages.items()
+            }
     else:  # mode == 'check'
         report_data = {
             'timestamp': timestamp,
@@ -139,18 +164,18 @@ def generate_json_report(
 
 
 def generate_markdown_report(
-    result: Union[ApplyResult, CheckResult],
+    result: Union[ApplyResult, CheckResult, UpgradeResult],
     output_path: Path,
     mode: str,
     repo_root: Optional[Path] = None
 ) -> None:
     """
-    Generate Markdown report for apply or check operation.
+    Generate Markdown report for apply, check, or upgrade operation.
     
     Args:
-        result: ApplyResult or CheckResult object
+        result: ApplyResult, CheckResult, or UpgradeResult object
         output_path: Path to write Markdown report
-        mode: Operation mode ('apply' or 'check')
+        mode: Operation mode ('apply', 'check', or 'upgrade')
         repo_root: Repository root for relative path calculation
         
     Raises:
@@ -199,6 +224,65 @@ def generate_markdown_report(
             for file_str in _format_file_list(result.failed_files, repo_root):
                 lines.append(f"- `{file_str}`")
             lines.append("")
+    
+    elif mode == 'upgrade':
+        lines.append("## Summary")
+        lines.append("")
+        lines.append(f"- **Scanned:** {result.total_processed()}")
+        lines.append(f"- **Upgraded:** {len(result.upgraded_files)}")
+        lines.append(f"- **Already Target:** {len(result.already_target)}")
+        lines.append(f"- **No Source Header:** {len(result.no_source_header)}")
+        lines.append(f"- **Skipped:** {len(result.skipped_files)}")
+        lines.append(f"- **Failed:** {len(result.failed_files)}")
+        lines.append("")
+        
+        if result.upgraded_files:
+            lines.append("## Upgraded Files")
+            lines.append("")
+            for file_str in _format_file_list(result.upgraded_files, repo_root):
+                lines.append(f"- `{file_str}`")
+            lines.append("")
+        
+        if result.already_target:
+            lines.append("## Already Has Target Header")
+            lines.append("")
+            file_list = _format_file_list(result.already_target, repo_root, limit=100)
+            for file_str in file_list:
+                lines.append(f"- `{file_str}`")
+            if len(result.already_target) > 100:
+                lines.append(f"- ... and {len(result.already_target) - 100} more")
+            lines.append("")
+        
+        if result.no_source_header:
+            lines.append("## No Source Header Found")
+            lines.append("")
+            lines.append("These files do not have the source header and were not modified:")
+            lines.append("")
+            file_list = _format_file_list(result.no_source_header, repo_root, limit=100)
+            for file_str in file_list:
+                lines.append(f"- `{file_str}`")
+            if len(result.no_source_header) > 100:
+                lines.append(f"- ... and {len(result.no_source_header) - 100} more")
+            lines.append("")
+        
+        if result.failed_files:
+            lines.append("## Failed Files")
+            lines.append("")
+            for file_str in _format_file_list(result.failed_files, repo_root):
+                lines.append(f"- `{file_str}`")
+            lines.append("")
+            
+            # Add error details if available
+            if result.error_messages:
+                lines.append("### Error Details")
+                lines.append("")
+                for file_path, error_msg in result.error_messages.items():
+                    try:
+                        rel_path = file_path.relative_to(repo_root) if repo_root else file_path
+                    except ValueError:
+                        rel_path = file_path
+                    lines.append(f"- `{rel_path}`: {error_msg}")
+                lines.append("")
     
     else:  # mode == 'check'
         lines.append("## Summary")
@@ -254,7 +338,7 @@ def generate_markdown_report(
 
 
 def generate_reports(
-    result: Union[ApplyResult, CheckResult],
+    result: Union[ApplyResult, CheckResult, UpgradeResult],
     output_dir: Path,
     mode: str,
     repo_root: Optional[Path] = None
@@ -263,9 +347,9 @@ def generate_reports(
     Generate both JSON and Markdown reports in the output directory.
     
     Args:
-        result: ApplyResult or CheckResult object
+        result: ApplyResult, CheckResult, or UpgradeResult object
         output_dir: Directory to write reports
-        mode: Operation mode ('apply' or 'check')
+        mode: Operation mode ('apply', 'check', or 'upgrade')
         repo_root: Repository root for relative path calculation
         
     Raises:

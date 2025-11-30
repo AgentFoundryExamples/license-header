@@ -272,3 +272,168 @@ class TestCheckCommand:
             result = self.runner.invoke(main, ['check', '--header', 'nonexistent.txt'])
             assert result.exit_code != 0
             assert 'Header file not found' in result.output
+
+
+class TestUpgradeCommand:
+    """Test upgrade command."""
+    
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.runner = CliRunner()
+    
+    def test_upgrade_help(self):
+        """Test upgrade --help."""
+        result = self.runner.invoke(main, ['upgrade', '--help'])
+        assert result.exit_code == 0
+        assert '--from-header' in result.output
+        assert '--to-header' in result.output
+        assert '--dry-run' in result.output
+        assert 'REQUIRED' in result.output
+    
+    def test_upgrade_requires_from_header(self):
+        """Test upgrade command requires --from-header."""
+        with self.runner.isolated_filesystem():
+            Path('TO_HEADER.txt').write_text('New Copyright\n')
+            result = self.runner.invoke(main, ['upgrade', '--to-header', 'TO_HEADER.txt'])
+            assert result.exit_code != 0
+            assert 'Missing option' in result.output or '--from-header' in result.output
+    
+    def test_upgrade_requires_to_header(self):
+        """Test upgrade command requires --to-header."""
+        with self.runner.isolated_filesystem():
+            Path('FROM_HEADER.txt').write_text('Old Copyright\n')
+            result = self.runner.invoke(main, ['upgrade', '--from-header', 'FROM_HEADER.txt'])
+            assert result.exit_code != 0
+            assert 'Missing option' in result.output or '--to-header' in result.output
+    
+    def test_upgrade_dry_run(self):
+        """Test upgrade command with dry-run mode."""
+        with self.runner.isolated_filesystem():
+            # Create old V1 header (with comment markers)
+            Path('OLD_HEADER.txt').write_text('# Old Copyright 2024\n')
+            
+            # Create new V2 header (raw text)
+            Path('NEW_HEADER.txt').write_text('New Copyright 2025\n')
+            
+            # Create test file with old header
+            Path('test.py').write_text('# Old Copyright 2024\ndef hello():\n    pass\n')
+            
+            result = self.runner.invoke(main, [
+                'upgrade',
+                '--from-header', 'OLD_HEADER.txt',
+                '--to-header', 'NEW_HEADER.txt',
+                '--dry-run'
+            ])
+            assert result.exit_code == 0
+            assert '[DRY RUN]' in result.output
+            assert 'Upgraded: 1' in result.output
+            
+            # File should not be modified
+            content = Path('test.py').read_text()
+            assert '# Old Copyright 2024' in content
+    
+    def test_upgrade_actual(self):
+        """Test upgrade command actually modifies files."""
+        with self.runner.isolated_filesystem():
+            # Create old V1 header (with comment markers)
+            Path('OLD_HEADER.txt').write_text('# Old Copyright 2024\n')
+            
+            # Create new V2 header (raw text)
+            Path('NEW_HEADER.txt').write_text('New Copyright 2025\n')
+            
+            # Create test file with old header
+            Path('test.py').write_text('# Old Copyright 2024\ndef hello():\n    pass\n')
+            
+            result = self.runner.invoke(main, [
+                'upgrade',
+                '--from-header', 'OLD_HEADER.txt',
+                '--to-header', 'NEW_HEADER.txt'
+            ])
+            assert result.exit_code == 0
+            assert 'Upgraded: 1' in result.output
+            
+            # File should be modified
+            content = Path('test.py').read_text()
+            assert '# New Copyright 2025' in content
+            assert '# Old Copyright 2024' not in content
+    
+    def test_upgrade_already_target(self):
+        """Test upgrade command skips files that already have target header."""
+        with self.runner.isolated_filesystem():
+            # Create headers
+            Path('OLD_HEADER.txt').write_text('# Old Copyright\n')
+            Path('NEW_HEADER.txt').write_text('New Copyright\n')
+            
+            # Create test file already with new header
+            Path('test.py').write_text('# New Copyright\ndef hello():\n    pass\n')
+            
+            result = self.runner.invoke(main, [
+                'upgrade',
+                '--from-header', 'OLD_HEADER.txt',
+                '--to-header', 'NEW_HEADER.txt'
+            ])
+            assert result.exit_code == 0
+            assert 'Already target: 1' in result.output
+            assert 'Upgraded: 0' in result.output
+    
+    def test_upgrade_no_source_header(self):
+        """Test upgrade command reports files without source header."""
+        with self.runner.isolated_filesystem():
+            # Create headers
+            Path('OLD_HEADER.txt').write_text('# Old Copyright\n')
+            Path('NEW_HEADER.txt').write_text('New Copyright\n')
+            
+            # Create test file without any header
+            Path('test.py').write_text('def hello():\n    pass\n')
+            
+            result = self.runner.invoke(main, [
+                'upgrade',
+                '--from-header', 'OLD_HEADER.txt',
+                '--to-header', 'NEW_HEADER.txt'
+            ])
+            assert result.exit_code == 0
+            assert 'No source header: 1' in result.output
+    
+    def test_upgrade_missing_from_header_file(self):
+        """Test upgrade command with missing from-header file."""
+        with self.runner.isolated_filesystem():
+            Path('NEW_HEADER.txt').write_text('New Copyright\n')
+            result = self.runner.invoke(main, [
+                'upgrade',
+                '--from-header', 'nonexistent.txt',
+                '--to-header', 'NEW_HEADER.txt'
+            ])
+            assert result.exit_code != 0
+            assert 'Header file not found' in result.output
+    
+    def test_upgrade_missing_to_header_file(self):
+        """Test upgrade command with missing to-header file."""
+        with self.runner.isolated_filesystem():
+            Path('OLD_HEADER.txt').write_text('Old Copyright\n')
+            result = self.runner.invoke(main, [
+                'upgrade',
+                '--from-header', 'OLD_HEADER.txt',
+                '--to-header', 'nonexistent.txt'
+            ])
+            assert result.exit_code != 0
+            assert 'Header file not found' in result.output
+    
+    def test_upgrade_with_output_reports(self):
+        """Test upgrade command with output reports."""
+        with self.runner.isolated_filesystem():
+            # Create headers
+            Path('OLD_HEADER.txt').write_text('# Old Copyright\n')
+            Path('NEW_HEADER.txt').write_text('New Copyright\n')
+            
+            # Create test file with old header
+            Path('test.py').write_text('# Old Copyright\ndef hello():\n    pass\n')
+            
+            result = self.runner.invoke(main, [
+                'upgrade',
+                '--from-header', 'OLD_HEADER.txt',
+                '--to-header', 'NEW_HEADER.txt',
+                '--output', 'reports'
+            ])
+            assert result.exit_code == 0
+            assert Path('reports/license-header-upgrade-report.json').exists()
+            assert Path('reports/license-header-upgrade-report.md').exists()

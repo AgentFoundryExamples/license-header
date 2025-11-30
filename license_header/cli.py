@@ -24,10 +24,16 @@ import logging
 import sys
 import click
 
-from .config import merge_config, get_header_content
-from .apply import apply_headers
+from .config import merge_config, get_header_content, find_repo_root, load_header_content
+from .apply import (
+    apply_headers,
+    UpgradeResult,
+    prepare_header_for_file,
+    upgrade_header_in_file,
+)
 from .check import check_headers
 from .reports import generate_reports
+from .scanner import scan_repository
 
 
 # Configure structured logging
@@ -300,6 +306,211 @@ def check(config, header, path, output, include_extension, exclude_path, dry_run
     except Exception as e:
         logger.error(f"Error in check command: {e}", exc_info=True)
         raise click.ClickException(f"Failed to check license headers: {e}")
+
+
+@main.command()
+@click.option('--from-header', required=True, type=str, help='Path to source header file (V1 or old V2) to replace')
+@click.option('--to-header', required=True, type=str, help='Path to target header file (V2 format) to insert')
+@click.option('--path', default='.', help='Path to scan for files (default: current directory)')
+@click.option('--output', type=str, help='Output directory for JSON and Markdown report files')
+@click.option('--include-extension', multiple=True, help='File extensions to include (e.g., .py, .js). Can be specified multiple times.')
+@click.option('--exclude-path', multiple=True, help='Paths/patterns to exclude (e.g., node_modules). Can be specified multiple times.')
+@click.option('--dry-run', is_flag=True, help='Preview changes without modifying files')
+@click.option('--fallback-comment-style', type=click.Choice(['hash', 'slash', 'none']), default='hash', help='Comment style for unknown file types (hash=#, slash=//, none=no wrapping)')
+@click.option('--use-block-comments', is_flag=True, help='Use block comments (/* */) instead of line comments where supported')
+def upgrade(from_header, to_header, path, output, include_extension, exclude_path, dry_run, fallback_comment_style, use_block_comments):
+    """Upgrade license headers from V1/old format to V2 format.
+    
+    This command transitions files from an old header (V1 with embedded comment
+    markers or older V2) to a new V2 header format.
+    
+    REQUIRED: Both --from-header and --to-header must be specified.
+    
+    The source header (--from-header) can be either:
+    - A V1 header file with embedded comment markers
+    - An older V2 raw header file
+    
+    The target header (--to-header) should be a V2 raw license text file
+    without comment markers. The tool will wrap it with appropriate comment
+    syntax for each file type.
+    
+    Files that already have the target header will be skipped. Files without
+    the source header will be reported but not modified.
+    
+    SAFETY: Always run with --dry-run first to preview changes.
+    """
+    logger.info(f"Upgrade command called with from='{from_header}', to='{to_header}', path='{path}', dry_run={dry_run}")
+    
+    try:
+        from pathlib import Path as PathLib
+        
+        # Find repo root
+        repo_root = find_repo_root(PathLib.cwd())
+        
+        # Load source header content
+        from_header_content = load_header_content(from_header, repo_root)
+        
+        # Load target header content
+        to_header_content = load_header_content(to_header, repo_root)
+        
+        # Display configuration
+        click.echo(f"Upgrade configuration:")
+        click.echo(f"  Source header: {from_header}")
+        click.echo(f"  Target header: {to_header}")
+        click.echo(f"  Target path: {path}")
+        if include_extension:
+            click.echo(f"  Include extensions: {', '.join(include_extension)}")
+        if exclude_path:
+            click.echo(f"  Exclude paths: {', '.join(exclude_path)}")
+        if output:
+            click.echo(f"  Output directory: {output}")
+        click.echo(f"  Dry run: {dry_run}")
+        click.echo(f"  Fallback comment style: {fallback_comment_style}")
+        click.echo(f"  Use block comments: {use_block_comments}")
+        click.echo(f"  Source header: {len(from_header_content)} characters")
+        click.echo(f"  Target header: {len(to_header_content)} characters")
+        click.echo()
+        
+        # Set up scan parameters
+        scan_path = PathLib(path)
+        if not scan_path.is_absolute():
+            scan_path = repo_root / scan_path
+        
+        # Use defaults if not specified
+        include_exts = list(include_extension) if include_extension else ['.py', '.js', '.ts', '.java', '.cpp', '.c', '.h', '.cs', '.rs']
+        exclude_paths = list(exclude_path) if exclude_path else ['node_modules', '.git', '__pycache__', 'venv', 'env', '.venv', 'dist', 'build']
+        
+        # Scan for files
+        logger.info(f"Scanning {scan_path} for eligible files...")
+        scan_result = scan_repository(
+            root_path=scan_path,
+            include_extensions=include_exts,
+            exclude_patterns=exclude_paths,
+            repo_root=repo_root,
+        )
+        
+        click.echo(f"Found {len(scan_result.eligible_files)} eligible files to check")
+        click.echo()
+        
+        # Process files
+        result = UpgradeResult()
+        
+        for file_path in scan_result.eligible_files:
+            try:
+                # Prepare target header for this specific file (wrap with comments)
+                wrapped_to_header = prepare_header_for_file(
+                    raw_header=to_header_content,
+                    file_path=file_path,
+                    wrap_comments=True,
+                    fallback_style_name=fallback_comment_style,
+                    use_block_comments=use_block_comments
+                )
+                
+                # Perform upgrade
+                status = upgrade_header_in_file(
+                    file_path=file_path,
+                    from_header=from_header_content,
+                    to_header=wrapped_to_header,
+                    dry_run=dry_run
+                )
+                
+                if status == 'upgraded':
+                    result.upgraded_files.append(file_path)
+                elif status == 'already_target':
+                    result.already_target.append(file_path)
+                elif status == 'no_source':
+                    result.no_source_header.append(file_path)
+                elif status.startswith('error:'):
+                    result.failed_files.append(file_path)
+                    result.error_messages[file_path] = status[6:]  # Remove 'error:' prefix
+                    
+            except Exception as e:
+                logger.error(f"Failed to process {file_path}: {e}")
+                result.failed_files.append(file_path)
+                result.error_messages[file_path] = str(e)
+        
+        # Track skipped files from scan
+        result.skipped_files.extend(scan_result.skipped_binary)
+        result.skipped_files.extend(scan_result.skipped_excluded)
+        result.skipped_files.extend(scan_result.skipped_symlink)
+        result.skipped_files.extend(scan_result.skipped_permission)
+        result.skipped_files.extend(scan_result.skipped_extension)
+        
+        # Display summary
+        click.echo(f"Summary:")
+        click.echo(f"  Scanned: {result.total_processed()}")
+        click.echo(f"  Upgraded: {len(result.upgraded_files)}")
+        click.echo(f"  Already target: {len(result.already_target)}")
+        click.echo(f"  No source header: {len(result.no_source_header)}")
+        click.echo(f"  Skipped: {len(result.skipped_files)}")
+        click.echo(f"  Failed: {len(result.failed_files)}")
+        click.echo()
+        
+        if dry_run:
+            click.echo("[DRY RUN] Files that would be upgraded:")
+            for file_path in result.upgraded_files[:20]:
+                try:
+                    rel_path = file_path.relative_to(repo_root)
+                except ValueError:
+                    rel_path = file_path
+                click.echo(f"  - {rel_path}")
+            if len(result.upgraded_files) > 20:
+                click.echo(f"  ... and {len(result.upgraded_files) - 20} more")
+            click.echo()
+            click.echo("[DRY RUN] No files were actually modified.")
+        elif result.upgraded_files:
+            click.echo(f"Upgraded {len(result.upgraded_files)} file(s):")
+            for file_path in result.upgraded_files[:10]:
+                try:
+                    rel_path = file_path.relative_to(repo_root)
+                except ValueError:
+                    rel_path = file_path
+                click.echo(f"  - {rel_path}")
+            if len(result.upgraded_files) > 10:
+                click.echo(f"  ... and {len(result.upgraded_files) - 10} more")
+        
+        if result.failed_files:
+            click.echo(f"\nFailed to process {len(result.failed_files)} file(s):")
+            for file_path in result.failed_files[:10]:
+                try:
+                    rel_path = file_path.relative_to(repo_root)
+                except ValueError:
+                    rel_path = file_path
+                error_msg = result.error_messages.get(file_path, 'Unknown error')
+                click.echo(f"  - {rel_path}: {error_msg}")
+            if len(result.failed_files) > 10:
+                click.echo(f"  ... and {len(result.failed_files) - 10} more")
+        
+        # Generate reports if output directory specified and not dry-run
+        if output and not dry_run:
+            try:
+                output_path = PathLib(output)
+                if not output_path.is_absolute():
+                    output_path = repo_root / output_path
+                
+                click.echo(f"\nGenerating reports in {output_path}...")
+                generate_reports(result, output_path, 'upgrade', repo_root)
+                click.echo(f"Reports written to {output_path}")
+            except Exception as e:
+                logger.error(f"Failed to generate reports: {e}")
+                raise click.ClickException(f"Failed to generate reports: {e}")
+        elif output and dry_run:
+            click.echo(f"\n[DRY RUN] Would generate reports in {output}")
+        
+        # Exit code based on failures
+        if result.failed_files:
+            click.echo("\nUpgrade completed with errors.", err=True)
+            sys.exit(1)
+        else:
+            click.echo("\nUpgrade completed successfully.")
+        
+        logger.info("Upgrade command completed")
+        
+    except click.ClickException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in upgrade command: {e}", exc_info=True)
+        raise click.ClickException(f"Failed to upgrade license headers: {e}")
 
 
 if __name__ == '__main__':
