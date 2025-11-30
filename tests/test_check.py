@@ -372,11 +372,12 @@ class TestCheckWithShebang:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
             
-            header = '# Copyright 2025\n'
+            # Use raw header (V2 format) - the check will wrap it for comparison
+            header = 'Copyright 2025\n'
             header_file = tmpdir_path / 'HEADER.txt'
             header_file.write_text(header)
             
-            # Create file with shebang then header
+            # Create file with shebang then wrapped header
             (tmpdir_path / 'script.py').write_text(
                 '#!/usr/bin/env python3\n# Copyright 2025\nprint("hi")\n'
             )
@@ -387,6 +388,7 @@ class TestCheckWithShebang:
             config.path = '.'
             config.include_extensions = ['.py']
             config.exclude_paths = []
+            config.wrap_comments = True  # Explicitly True for clarity
             
             result = check_headers(config)
             

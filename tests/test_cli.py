@@ -582,6 +582,80 @@ class TestUpgradeCommand:
             assert '# License Header Upgrade Report' in content
             assert 'Summary' in content
             assert 'Upgraded' in content
+    
+    def test_upgrade_file_io_error_handling(self):
+        """Test that upgrade handles file I/O errors gracefully."""
+        import os
+        
+        with self.runner.isolated_filesystem():
+            Path('OLD_HEADER.txt').write_text('# Old Copyright\n')
+            Path('NEW_HEADER.txt').write_text('New Copyright\n')
+            
+            # Create a read-only directory to cause I/O errors
+            readonly_dir = Path('readonly')
+            readonly_dir.mkdir()
+            test_file = readonly_dir / 'test.py'
+            test_file.write_text('# Old Copyright\ncode\n')
+            
+            # Make directory read-only (file can be read but not written)
+            if os.name != 'nt':  # Skip on Windows
+                os.chmod(readonly_dir, 0o555)
+                
+                try:
+                    result = self.runner.invoke(main, [
+                        'upgrade',
+                        '--from-header', 'OLD_HEADER.txt',
+                        '--to-header', 'NEW_HEADER.txt'
+                    ])
+                    
+                    # Should report the failed file in output
+                    assert 'Failed: 1' in result.output or 'error' in result.output.lower()
+                    # File should remain unchanged due to I/O error
+                    assert '# Old Copyright' in test_file.read_text()
+                finally:
+                    # Restore permissions for cleanup
+                    os.chmod(readonly_dir, 0o755)
+    
+    def test_upgrade_with_binary_files_skipped(self):
+        """Test that upgrade skips binary files gracefully."""
+        with self.runner.isolated_filesystem():
+            Path('OLD_HEADER.txt').write_text('# Old Copyright\n')
+            Path('NEW_HEADER.txt').write_text('New Copyright\n')
+            
+            # Create a valid text file
+            Path('test.py').write_text('# Old Copyright\ncode\n')
+            
+            # Create a binary file with .py extension
+            Path('binary.py').write_bytes(b'\x00\x01\x02\x03binary')
+            
+            result = self.runner.invoke(main, [
+                'upgrade',
+                '--from-header', 'OLD_HEADER.txt',
+                '--to-header', 'NEW_HEADER.txt'
+            ])
+            
+            assert result.exit_code == 0
+            # Text file should be upgraded
+            assert '# New Copyright' in Path('test.py').read_text()
+            # Binary file should be unchanged
+            assert Path('binary.py').read_bytes() == b'\x00\x01\x02\x03binary'
+    
+    def test_upgrade_nonexistent_directory(self):
+        """Test that upgrade handles nonexistent directory gracefully."""
+        with self.runner.isolated_filesystem():
+            Path('OLD_HEADER.txt').write_text('# Old Copyright\n')
+            Path('NEW_HEADER.txt').write_text('New Copyright\n')
+            
+            result = self.runner.invoke(main, [
+                'upgrade',
+                '--from-header', 'OLD_HEADER.txt',
+                '--to-header', 'NEW_HEADER.txt',
+                '--path', 'nonexistent_dir'
+            ])
+            
+            # Should fail or show no files processed
+            # The exact behavior depends on implementation
+            assert 'Upgraded: 0' in result.output or result.exit_code != 0
 
 
 class TestCheckCommandExtended:
