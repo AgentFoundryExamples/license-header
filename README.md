@@ -6,6 +6,8 @@ A deterministic license header enforcement tool for source files. This CLI tool 
 
 - **Apply Mode**: Automatically add or update license headers in source files
 - **Check Mode**: Verify that all source files have correct license headers
+- **Multi-Language Support**: Automatically wraps headers with appropriate comment syntax for Python, C, C++, C#, TypeScript, JavaScript, Java, and Rust
+- **Comment-Agnostic Headers**: Store raw license text in header files; comment wrapping is handled automatically
 - **Deterministic**: Consistent, reproducible results across different environments
 - **GitHub Actions Ready**: Designed for easy integration into CI/CD pipelines
 
@@ -39,20 +41,30 @@ The CLI provides two main commands: `apply` and `check`.
 
 ### Quick Start
 
-1. Create a `LICENSE_HEADER` file in your repository root with your header content:
+1. Create a `LICENSE_HEADER` file in your repository root with your **raw license text** (no comment markers):
 
 ```
-# Copyright (c) 2025 Your Organization
-# Licensed under the MIT License
+Copyright (c) 2025 Your Organization
+Licensed under the MIT License
 ```
+
+The tool will automatically wrap this with appropriate comment syntax for each file type:
+- Python (`.py`): `# Copyright (c) 2025 Your Organization`
+- JavaScript/TypeScript (`.js`, `.ts`): `// Copyright (c) 2025 Your Organization`
+- C/C++ (`.c`, `.cpp`, `.h`): `// Copyright (c) 2025 Your Organization`
+- Java (`.java`): `// Copyright (c) 2025 Your Organization`
+- Rust (`.rs`): `// Copyright (c) 2025 Your Organization`
+- C# (`.cs`): `// Copyright (c) 2025 Your Organization`
 
 2. Optionally, create a `license-header.config.json` configuration file:
 
 ```json
 {
   "header_file": "LICENSE_HEADER",
-  "include_extensions": [".py", ".js", ".ts"],
-  "exclude_paths": ["node_modules", ".git", "venv"]
+  "include_extensions": [".py", ".js", ".ts", ".java", ".c", ".cpp", ".h", ".cs", ".rs"],
+  "exclude_paths": ["node_modules", ".git", "venv"],
+  "wrap_comments": true,
+  "fallback_comment_style": "hash"
 }
 ```
 
@@ -176,6 +188,115 @@ Summary:
   Failed: 0             # Files that couldn't be read
 ```
 
+## Multi-Language Comment Wrapping
+
+The tool automatically wraps raw license header text with appropriate comment syntax for each supported file type. This enables using a single, comment-agnostic header file across multi-language repositories.
+
+### Supported Languages
+
+| Language | Extensions | Comment Style |
+|----------|------------|---------------|
+| Python | `.py`, `.pyi`, `.pyw` | `# comment` |
+| C | `.c`, `.h` | `// comment` or `/* block */` |
+| C++ | `.cpp`, `.hpp`, `.cc`, `.hh`, `.cxx`, `.hxx` | `// comment` or `/* block */` |
+| C# | `.cs` | `// comment` or `/* block */` |
+| Java | `.java` | `// comment` or `/* block */` |
+| JavaScript | `.js`, `.mjs`, `.cjs` | `// comment` or `/* block */` |
+| TypeScript | `.ts`, `.mts`, `.cts`, `.tsx` | `// comment` or `/* block */` |
+| Rust | `.rs` | `// comment` or `/* block */` |
+
+### Header File Format
+
+Your `LICENSE_HEADER` file should contain **raw license text without comment markers**:
+
+```
+Copyright (c) 2025 Your Organization
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+```
+
+The tool will automatically wrap this with appropriate comments:
+
+**For Python files (`.py`):**
+```python
+# Copyright (c) 2025 Your Organization
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# ...
+```
+
+**For JavaScript/TypeScript files (`.js`, `.ts`):**
+```javascript
+// Copyright (c) 2025 Your Organization
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// ...
+```
+
+### Block Comment Mode
+
+Use `--use-block-comments` for C-style block comments:
+
+```bash
+license-header apply --use-block-comments
+```
+
+**Result for C/Java/JavaScript files:**
+```c
+/*
+ * Copyright (c) 2025 Your Organization
+ *
+ * Licensed under the Apache License...
+ */
+```
+
+### Fallback Comment Style
+
+For unknown file extensions, use `--fallback-comment-style`:
+
+```bash
+# Use hash comments for unknown extensions (default)
+license-header apply --fallback-comment-style hash
+
+# Use slash comments for unknown extensions
+license-header apply --fallback-comment-style slash
+
+# Don't wrap unknown extensions (use raw header text)
+license-header apply --fallback-comment-style none
+```
+
+### Disabling Comment Wrapping
+
+To use headers as-is (legacy mode), use `--no-wrap-comments`:
+
+```bash
+license-header apply --no-wrap-comments
+```
+
+This is useful when your header file already contains comment markers.
+
+### Configuration Options
+
+| Option | CLI Flag | Config File Key | Default | Description |
+|--------|----------|----------------|---------|-------------|
+| **Wrap Comments** | `--no-wrap-comments` | `wrap_comments` | `true` | Enable/disable automatic comment wrapping |
+| **Fallback Style** | `--fallback-comment-style` | `fallback_comment_style` | `hash` | Comment style for unknown extensions (`hash`, `slash`, `none`) |
+| **Block Comments** | `--use-block-comments` | `use_block_comments` | `false` | Use block comments instead of line comments |
+
+### Backward Compatibility
+
+The tool automatically detects if a header file already contains comment markers and skips wrapping in that case. This ensures backward compatibility with existing header files that include language-specific comment syntax.
+
 ## Configuration
 
 The tool supports configuration through both CLI options and a JSON configuration file. CLI options always take precedence over configuration file settings.
@@ -187,9 +308,12 @@ Create a `license-header.config.json` file in your repository root:
 ```json
 {
   "header_file": "LICENSE_HEADER",
-  "include_extensions": [".py", ".js", ".ts", ".java", ".cpp", ".c", ".h"],
+  "include_extensions": [".py", ".js", ".ts", ".java", ".cpp", ".c", ".h", ".cs", ".rs"],
   "exclude_paths": ["node_modules", ".git", "__pycache__", "venv", "env", ".venv", "dist", "build"],
-  "output_dir": null
+  "output_dir": null,
+  "wrap_comments": true,
+  "fallback_comment_style": "hash",
+  "use_block_comments": false
 }
 ```
 
@@ -198,12 +322,15 @@ Create a `license-header.config.json` file in your repository root:
 | Option | CLI Flag | Config File Key | Default | Description |
 |--------|----------|----------------|---------|-------------|
 | **Header File** | `--header` | `header_file` | `LICENSE_HEADER` if present, else required | Path to the license header file (relative to repo root or absolute) |
-| **Include Extensions** | `--include-extension` | `include_extensions` | `[".py", ".js", ".ts", ".java", ".cpp", ".c", ".h"]` | File extensions to process. CLI flag can be specified multiple times. |
+| **Include Extensions** | `--include-extension` | `include_extensions` | `[".py", ".js", ".ts", ".java", ".cpp", ".c", ".h", ".cs", ".rs"]` | File extensions to process. CLI flag can be specified multiple times. |
 | **Exclude Paths** | `--exclude-path` | `exclude_paths` | `["node_modules", ".git", "__pycache__", "venv", "env", ".venv", "dist", "build"]` | Paths/patterns to exclude from processing. CLI flag can be specified multiple times. |
 | **Output Directory** | `--output` | `output_dir` | None (no reports) | Directory to save report files (JSON and Markdown) - files are always modified in-place |
 | **Target Path** | `--path` | N/A | `.` (current directory) | Path to scan for source files |
 | **Dry Run** | `--dry-run` | N/A | `false` | Preview results without modifying files (both apply and check modes) |
 | **Config File** | `--config` | N/A | `license-header.config.json` if present | Path to custom configuration file |
+| **Wrap Comments** | `--no-wrap-comments` | `wrap_comments` | `true` | Enable/disable automatic comment wrapping |
+| **Fallback Style** | `--fallback-comment-style` | `fallback_comment_style` | `hash` | Comment style for unknown extensions |
+| **Block Comments** | `--use-block-comments` | `use_block_comments` | `false` | Use block comments instead of line comments |
 
 ### Repository Traversal
 

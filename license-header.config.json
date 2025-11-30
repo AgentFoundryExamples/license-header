@@ -7,7 +7,9 @@
     ".java",
     ".cpp",
     ".c",
-    ".h"
+    ".h",
+    ".cs",
+    ".rs"
   ],
   "exclude_paths": [
     "node_modules",
@@ -19,5 +21,8 @@
     "dist",
     "build"
   ],
-  "output_dir": null
+  "output_dir": null,
+  "wrap_comments": true,
+  "fallback_comment_style": "hash",
+  "use_block_comments": false
 }
