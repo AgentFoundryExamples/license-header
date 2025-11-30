@@ -26,7 +26,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import click
 
@@ -53,6 +53,17 @@ class Config:
     wrap_comments: bool = True  # Enable/disable comment wrapping
     fallback_comment_style: str = 'hash'  # 'hash' for #, 'slash' for //, 'none' for no wrapping
     use_block_comments: bool = False  # Use block comments instead of line comments
+    
+    # V2 header version configuration
+    header_version: str = 'v2'  # 'v1' or 'v2' - only 'v2' allowed for regular runs
+    
+    # Upgrade configuration (only used in upgrade mode)
+    upgrade_from_header: Optional[str] = None  # Path to source header for upgrade
+    upgrade_to_header: Optional[str] = None  # Path to target header for upgrade
+    
+    # Per-language comment overrides (extension -> style)
+    # Keys are file extensions (e.g., '.py'), values are style names ('hash', 'slash', 'block')
+    language_comment_overrides: Dict[str, str] = field(default_factory=dict)
     
     # Resolved paths (computed after loading)
     _header_content: Optional[str] = field(default=None, init=False, repr=False)
@@ -211,6 +222,108 @@ def validate_exclude_patterns(patterns: List[str]) -> None:
             )
 
 
+# Valid header version strings
+VALID_HEADER_VERSIONS = ['v1', 'v2']
+
+# Valid comment override styles
+VALID_COMMENT_OVERRIDE_STYLES = ['hash', 'slash', 'block', 'none']
+
+
+def validate_header_version(version: str, mode: str) -> None:
+    """
+    Validate header version string.
+    
+    Args:
+        version: Header version string
+        mode: Current mode ('apply', 'check', or 'upgrade')
+        
+    Raises:
+        click.ClickException: If version is invalid or V1 is used outside upgrade mode
+    """
+    if version not in VALID_HEADER_VERSIONS:
+        raise click.ClickException(
+            f"Invalid header_version '{version}'. "
+            f"Valid options are: {VALID_HEADER_VERSIONS}"
+        )
+    
+    # V1 headers are only allowed in upgrade mode
+    if version == 'v1' and mode != 'upgrade':
+        raise click.ClickException(
+            f"Header version 'v1' is only allowed in upgrade mode. "
+            f"For regular {mode} operations, use 'v2' headers. "
+            "To migrate from V1 to V2, use the 'upgrade' command."
+        )
+
+
+def validate_upgrade_config(
+    upgrade_from_header: Optional[str],
+    upgrade_to_header: Optional[str],
+    mode: str
+) -> None:
+    """
+    Validate upgrade configuration.
+    
+    Args:
+        upgrade_from_header: Path to source header for upgrade
+        upgrade_to_header: Path to target header for upgrade
+        mode: Current mode ('apply', 'check', or 'upgrade')
+        
+    Raises:
+        click.ClickException: If upgrade fields are invalid
+    """
+    # In upgrade mode, both from and to headers are required
+    if mode == 'upgrade':
+        if not upgrade_from_header or not upgrade_to_header:
+            raise click.ClickException(
+                "Upgrade mode requires both 'upgrade_from_header' and 'upgrade_to_header' to be set. "
+                "Specify them via:\n"
+                "  - CLI flags: --from-header and --to-header\n"
+                "  - Config file: 'upgrade_from_header' and 'upgrade_to_header' keys"
+            )
+    else:
+        # Outside of upgrade mode, upgrade fields should not be set
+        if upgrade_from_header or upgrade_to_header:
+            logger.warning(
+                f"'upgrade_from_header' and 'upgrade_to_header' are only used in upgrade mode. "
+                f"They will be ignored in {mode} mode."
+            )
+
+
+def validate_language_comment_overrides(overrides: Dict[str, str]) -> None:
+    """
+    Validate language comment overrides.
+    
+    Args:
+        overrides: Dictionary mapping extensions to comment styles
+        
+    Raises:
+        click.ClickException: If any override value is invalid
+    """
+    if not isinstance(overrides, dict):
+        raise click.ClickException(
+            f"Invalid type for 'language_comment_overrides': expected a dictionary, but got {type(overrides).__name__}."
+        )
+    
+    if not overrides:
+        # Empty overrides are valid - fall back to built-in defaults
+        return
+    
+    for extension, style in overrides.items():
+        # Validate extension format
+        if not extension.startswith('.'):
+            raise click.ClickException(
+                f"Invalid extension '{extension}' in language_comment_overrides. "
+                "Extensions must start with '.' (e.g., '.py', '.js')."
+            )
+        
+        # Validate style value
+        if style not in VALID_COMMENT_OVERRIDE_STYLES:
+            raise click.ClickException(
+                f"Invalid comment style '{style}' for extension '{extension}' in language_comment_overrides. "
+                f"Valid styles are: {VALID_COMMENT_OVERRIDE_STYLES}"
+            )
+
+
 def merge_config(
     cli_args: dict,
     config_file_path: Optional[str] = None,
@@ -248,6 +361,10 @@ def merge_config(
         'wrap_comments': True,
         'fallback_comment_style': 'hash',
         'use_block_comments': False,
+        'header_version': 'v2',
+        'upgrade_from_header': None,
+        'upgrade_to_header': None,
+        'language_comment_overrides': {},
     }
     
     # Load config file if specified or if default exists
@@ -270,7 +387,9 @@ def merge_config(
     if config_file_data:
         # Map config file keys to internal keys
         for key in ['include_extensions', 'exclude_paths', 'output_dir', 'header_file',
-                    'wrap_comments', 'fallback_comment_style', 'use_block_comments']:
+                    'wrap_comments', 'fallback_comment_style', 'use_block_comments',
+                    'header_version', 'upgrade_from_header', 'upgrade_to_header',
+                    'language_comment_overrides']:
             if key in config_file_data and config_file_data[key] is not None:
                 config_data[key] = config_file_data[key]
     
@@ -322,6 +441,33 @@ def merge_config(
     validate_extensions(config_data['include_extensions'])
     validate_exclude_patterns(config_data['exclude_paths'])
     
+    # Validate V2 configuration fields
+    mode = config_data.get('mode', 'apply')
+    header_version = config_data.get('header_version', 'v2')
+    validate_header_version(header_version, mode)
+    
+    # Validate upgrade configuration
+    upgrade_from = config_data.get('upgrade_from_header')
+    upgrade_to = config_data.get('upgrade_to_header')
+    validate_upgrade_config(upgrade_from, upgrade_to, mode)
+    
+    # Validate language comment overrides
+    language_overrides = config_data.get('language_comment_overrides', {})
+    validate_language_comment_overrides(language_overrides)
+    
+    # Validate upgrade header paths are within repo if specified
+    if upgrade_from:
+        upgrade_from_path = Path(upgrade_from)
+        if not upgrade_from_path.is_absolute():
+            upgrade_from_path = repo_root / upgrade_from_path
+        validate_path_in_repo(upgrade_from_path, repo_root, "Upgrade source header path")
+    
+    if upgrade_to:
+        upgrade_to_path = Path(upgrade_to)
+        if not upgrade_to_path.is_absolute():
+            upgrade_to_path = repo_root / upgrade_to_path
+        validate_path_in_repo(upgrade_to_path, repo_root, "Upgrade target header path")
+    
     # Create Config object
     config = Config(
         header_file=config_data['header_file'],
@@ -335,6 +481,10 @@ def merge_config(
         wrap_comments=config_data.get('wrap_comments', True),
         fallback_comment_style=config_data.get('fallback_comment_style', 'hash'),
         use_block_comments=config_data.get('use_block_comments', False),
+        header_version=header_version,
+        upgrade_from_header=upgrade_from,
+        upgrade_to_header=upgrade_to,
+        language_comment_overrides=language_overrides,
     )
     
     # Store repo root
