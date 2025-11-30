@@ -1021,6 +1021,14 @@ class TestStripCommentMarkers:
         assert "/*" not in result
         assert "*/" not in result
     
+    def test_strip_single_line_block_comment(self):
+        """Test stripping single-line block comments like /* ... */."""
+        text = "/* Copyright 2025 */"
+        result = strip_comment_markers(text)
+        assert "Copyright 2025" in result
+        assert "/*" not in result
+        assert "*/" not in result
+    
     def test_strip_raw_text(self):
         """Test that raw text without comments is returned as-is."""
         text = "Copyright 2025\nLicensed under MIT\n"

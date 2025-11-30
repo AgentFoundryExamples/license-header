@@ -510,34 +510,39 @@ def strip_comment_markers(text: str) -> str:
     for line in lines:
         stripped = line.strip()
         
-        # Handle block comment markers
-        if stripped.startswith('/*'):
-            in_block = True
-            # Check if there's content after /*
-            rest = stripped[2:].strip()
-            if rest and not rest.startswith('*'):
-                result_lines.append(rest)
+        # Handle single-line block comments like `/* ... */`
+        if not in_block and stripped.startswith('/*') and stripped.endswith('*/'):
+            content = stripped[2:-2].strip()
+            if content.startswith('*'):
+                content = content[1:].strip()
+            if content:
+                result_lines.append(content)
             continue
         
-        if stripped.endswith('*/') or stripped == '*/':
+        # Handle start of a multi-line block comment
+        if not in_block and stripped.startswith('/*'):
+            in_block = True
+            content = stripped[2:].strip()
+            if content:
+                result_lines.append(content)
+            continue
+        
+        # Handle end of a multi-line block comment
+        if in_block and stripped.endswith('*/'):
             in_block = False
-            # Check if there's content before */
-            rest = stripped[:-2].strip()
-            if rest and rest != '*':
-                # Remove leading * if present
-                if rest.startswith('*'):
-                    rest = rest[1:].strip()
-                if rest:
-                    result_lines.append(rest)
+            content = stripped[:-2].strip()
+            if content.startswith('*'):
+                content = content[1:].strip()
+            if content:
+                result_lines.append(content)
             continue
         
         if in_block:
-            # Remove block line prefix (e.g., ' * ')
-            if stripped.startswith('*'):
-                rest = stripped[1:].lstrip()
-                result_lines.append(rest)
-            else:
-                result_lines.append(stripped)
+            # Handle lines inside a multi-line block comment
+            content = stripped
+            if content.startswith('*'):
+                content = content[1:].lstrip()
+            result_lines.append(content)
             continue
         
         # Handle line comment prefixes
@@ -686,25 +691,8 @@ def remove_header_from_content(
     if not found:
         return (content, False)
     
-    # Extract shebang
-    shebang, remaining = extract_shebang(content)
-    
-    # Calculate position in remaining content
-    shebang_len = len(shebang) if shebang else 0
-    header_start = start_pos - shebang_len
-    header_end = end_pos - shebang_len
-    
-    # Remove header from remaining content
-    new_remaining = remaining[:header_start] + remaining[header_end:]
-    
-    # Trim leading whitespace from new_remaining, but preserve one newline
-    new_remaining = new_remaining.lstrip('\n')
-    
-    # Reconstruct content
-    if shebang:
-        new_content = shebang + new_remaining
-    else:
-        new_content = new_remaining
+    # Reconstruct content by taking everything before and after the detected header
+    new_content = content[:start_pos] + content[end_pos:]
     
     return (new_content, True)
 

@@ -437,3 +437,15 @@ class TestUpgradeCommand:
             assert result.exit_code == 0
             assert Path('reports/license-header-upgrade-report.json').exists()
             assert Path('reports/license-header-upgrade-report.md').exists()
+    
+    def test_upgrade_same_file_rejected(self):
+        """Test upgrade command rejects same file for from and to headers."""
+        with self.runner.isolated_filesystem():
+            Path('HEADER.txt').write_text('Copyright\n')
+            result = self.runner.invoke(main, [
+                'upgrade',
+                '--from-header', 'HEADER.txt',
+                '--to-header', 'HEADER.txt'
+            ])
+            assert result.exit_code != 0
+            assert '--from-header and --to-header cannot be the same file' in result.output

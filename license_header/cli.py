@@ -341,6 +341,10 @@ def upgrade(from_header, to_header, path, output, include_extension, exclude_pat
     """
     logger.info(f"Upgrade command called with from='{from_header}', to='{to_header}', path='{path}', dry_run={dry_run}")
     
+    # Prevent accidental self-referential upgrade
+    if from_header == to_header:
+        raise click.ClickException("--from-header and --to-header cannot be the same file.")
+    
     try:
         from pathlib import Path as PathLib
         
