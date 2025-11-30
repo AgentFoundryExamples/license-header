@@ -5,6 +5,64 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2025-11-30
+
+### ⚠️ Breaking Changes
+
+#### V1 Header Format End-of-Life
+
+V1 headers (with embedded comment markers) are **no longer supported** for regular operations. All users must migrate to V2 format.
+
+- **V1 headers are deprecated**: The `header_version: "v1"` configuration is only allowed in `upgrade` mode
+- **V2 is now required**: All `apply` and `check` operations require V2 headers (raw license text without comment markers)
+- **No retroactive V1 support**: Files with V1 headers will not be automatically detected or updated without using the upgrade command
+
+### Added
+
+#### Upgrade Command for V1 to V2 Migration
+- New `upgrade` command for safe, deterministic migration from V1 to V2 headers
+- Required `--from-header` and `--to-header` arguments to prevent accidental modifications
+- Support for migrating from V1 headers (with embedded comment markers) or older V2 headers
+- Dry-run mode (`--dry-run`) to preview changes before applying
+- JSON and Markdown report generation for audit purposes
+- Atomic file writes to prevent partial modifications
+- Detailed summary counters (scanned, upgraded, already target, no source header, skipped, failed)
+
+#### Multi-Language Comment Wrapping
+- Automatic comment syntax wrapping for Python, C, C++, C#, Java, JavaScript, TypeScript, and Rust
+- Single comment-agnostic header file works across all supported languages
+- Block comment mode (`--use-block-comments`) for C-style block comments
+- Fallback comment style (`--fallback-comment-style`) for unknown file extensions
+- Per-language comment style overrides via configuration
+
+#### Enhanced Configuration
+- `header_version` configuration field (`v1` or `v2`) with validation
+- `language_comment_overrides` for per-extension comment style customization
+- `upgrade_from_header` and `upgrade_to_header` configuration options
+- Validation that `header_version: "v1"` is only allowed in upgrade mode
+
+### Changed
+
+- Default header format is now V2 (raw license text without comment markers)
+- Header detection now handles both V1 and V2 formats during upgrade operations
+- Configuration validation enforces V2 for `apply` and `check` modes
+
+### Migration Guide
+
+**Before using V2 features, you must upgrade existing headers:**
+
+1. Create your old V1 header file (copy your existing header with comment markers)
+2. Create your new V2 header file (raw license text without comment markers)
+3. Preview the upgrade:
+   ```bash
+   license-header upgrade --from-header OLD_HEADER.txt --to-header NEW_HEADER.txt --dry-run
+   ```
+4. Perform the upgrade:
+   ```bash
+   license-header upgrade --from-header OLD_HEADER.txt --to-header NEW_HEADER.txt
+   ```
+5. Verify results with `license-header check`
+
 ## [0.2.0] - 2025-11-21
 
 ### Added

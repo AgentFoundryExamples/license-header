@@ -41,7 +41,7 @@ class TestCLI:
         """Test --version flag."""
         result = self.runner.invoke(main, ['--version'])
         assert result.exit_code == 0
-        assert '0.2.0' in result.output
+        assert '1.0.0' in result.output
     
     def test_help(self):
         """Test --help flag."""
