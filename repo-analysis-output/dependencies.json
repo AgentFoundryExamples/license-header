@@ -20,9 +20,11 @@
           "logging",
           "os",
           "pathlib.Path",
+          "re",
           "tempfile",
           "typing.List",
-          "typing.Optional"
+          "typing.Optional",
+          "typing.Tuple"
         ],
         "third-party": []
       }
@@ -257,6 +259,10 @@
       "target": "license_header/utils.py"
     },
     {
+      "source": "license_header/cli.py",
+      "target": "license_header/apply.py"
+    },
+    {
       "source": "license_header/scanner.py",
       "target": "license_header/utils.py"
     },
@@ -328,6 +334,7 @@
       "logging",
       "os",
       "pathlib.Path",
+      "re",
       "sys",
       "tempfile",
       "typing.Dict",
@@ -342,7 +349,7 @@
       "click.testing.CliRunner",
       "pytest"
     ],
-    "stdlib_count": 16,
+    "stdlib_count": 17,
     "third-party_count": 4
   }
 }

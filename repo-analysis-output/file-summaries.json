@@ -32,10 +32,10 @@
       "role": "implementation",
       "role_justification": "general implementation file (default classification)",
       "metrics": {
-        "size_bytes": 15186,
-        "loc": 297,
+        "size_bytes": 26581,
+        "loc": 550,
         "todo_count": 0,
-        "declaration_count": 9
+        "declaration_count": 16
       },
       "structure": {
         "declarations": [
@@ -47,7 +47,14 @@
           "function has_header",
           "function insert_header",
           "function apply_header_to_file",
-          "function apply_headers"
+          "function apply_headers",
+          "class UpgradeResult",
+          "function strip_comment_markers",
+          "function normalize_body_for_comparison",
+          "function detect_header_in_content",
+          "function remove_header_from_content",
+          "function upgrade_header_in_content",
+          "function upgrade_header_in_file"
         ]
       },
       "dependencies": {
@@ -60,9 +67,11 @@
             "logging",
             "os",
             "pathlib.Path",
+            "re",
             "tempfile",
             "typing.List",
-            "typing.Optional"
+            "typing.Optional",
+            "typing.Tuple"
           ],
           "third-party": []
         }
@@ -109,17 +118,18 @@
       "role": "cli",
       "role_justification": "CLI-related name 'cli'",
       "metrics": {
-        "size_bytes": 14734,
-        "loc": 225,
+        "size_bytes": 24950,
+        "loc": 393,
         "todo_count": 0,
-        "declaration_count": 4
+        "declaration_count": 5
       },
       "structure": {
         "declarations": [
           "function check_python_version",
           "function main",
           "function apply",
-          "function check"
+          "function check",
+          "function upgrade"
         ]
       },
       "dependencies": {
@@ -229,8 +239,8 @@
       "role": "implementation",
       "role_justification": "general implementation file (default classification)",
       "metrics": {
-        "size_bytes": 11157,
-        "loc": 223,
+        "size_bytes": 15202,
+        "loc": 299,
         "todo_count": 0,
         "declaration_count": 4
       },
@@ -342,10 +352,10 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 37345,
-        "loc": 611,
+        "size_bytes": 48270,
+        "loc": 827,
         "todo_count": 0,
-        "declaration_count": 7
+        "declaration_count": 14
       },
       "structure": {
         "declarations": [
@@ -355,7 +365,14 @@
           "class TestHasHeader",
           "class TestInsertHeader",
           "class TestApplyHeaderToFile",
-          "class TestApplyHeaders"
+          "class TestApplyHeaders",
+          "class TestUpgradeResult",
+          "class TestStripCommentMarkers",
+          "class TestNormalizeBodyForComparison",
+          "class TestDetectHeaderInContent",
+          "class TestRemoveHeaderFromContent",
+          "class TestUpgradeHeaderInContent",
+          "class TestUpgradeHeaderInFile"
         ]
       },
       "dependencies": {
@@ -413,16 +430,17 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 11086,
-        "loc": 199,
+        "size_bytes": 18737,
+        "loc": 334,
         "todo_count": 0,
-        "declaration_count": 3
+        "declaration_count": 4
       },
       "structure": {
         "declarations": [
           "class TestCLI",
           "class TestApplyCommand",
-          "class TestCheckCommand"
+          "class TestCheckCommand",
+          "class TestUpgradeCommand"
         ]
       },
       "dependencies": {

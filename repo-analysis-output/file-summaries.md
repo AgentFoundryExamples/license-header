@@ -18,10 +18,10 @@ Total files: 16
 **Language:** Python  
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
-**Size:** 14.83 KB  
-**LOC:** 297  
+**Size:** 25.96 KB  
+**LOC:** 550  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 9  
+**Declarations:** 16  
 **Top-level declarations:**
   - class ApplyResult
   - function normalize_header
@@ -32,9 +32,11 @@ Total files: 16
   - function insert_header
   - function apply_header_to_file
   - function apply_headers
+  - class UpgradeResult
+  - ... and 6 more
 **External Dependencies:**
   - **Stdlib:** `dataclasses.dataclass`, `dataclasses.field`, `logging`, `os`, `pathlib.Path`
-    _(and 3 more)_
+    _(and 5 more)_
 
 ## license_header/check.py
 **Language:** Python  
@@ -55,15 +57,16 @@ Total files: 16
 **Language:** Python  
 **Role:** cli  
 **Role Justification:** CLI-related name 'cli'  
-**Size:** 14.39 KB  
-**LOC:** 225  
+**Size:** 24.37 KB  
+**LOC:** 393  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 4  
+**Declarations:** 5  
 **Top-level declarations:**
   - function check_python_version
   - function main
   - function apply
   - function check
+  - function upgrade
 **External Dependencies:**
   - **Stdlib:** `logging`, `pathlib.Path`, `sys`
   - **Third-party:** `click`
@@ -117,8 +120,8 @@ Total files: 16
 **Language:** Python  
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
-**Size:** 10.90 KB  
-**LOC:** 223  
+**Size:** 14.85 KB  
+**LOC:** 299  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 4  
 **Top-level declarations:**
@@ -170,10 +173,10 @@ Total files: 16
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 36.47 KB  
-**LOC:** 611  
+**Size:** 47.14 KB  
+**LOC:** 827  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 7  
+**Declarations:** 14  
 **Top-level declarations:**
   - class TestApplyResult
   - class TestUtilityFunctions
@@ -182,6 +185,10 @@ Total files: 16
   - class TestInsertHeader
   - class TestApplyHeaderToFile
   - class TestApplyHeaders
+  - class TestUpgradeResult
+  - class TestStripCommentMarkers
+  - class TestNormalizeBodyForComparison
+  - ... and 4 more
 **External Dependencies:**
   - **Stdlib:** `codecs`, `os`, `pathlib.Path`
   - **Third-party:** `pytest`
@@ -206,14 +213,15 @@ Total files: 16
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 10.83 KB  
-**LOC:** 199  
+**Size:** 18.30 KB  
+**LOC:** 334  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 3  
+**Declarations:** 4  
 **Top-level declarations:**
   - class TestCLI
   - class TestApplyCommand
   - class TestCheckCommand
+  - class TestUpgradeCommand
 **External Dependencies:**
   - **Stdlib:** `json`, `os`, `pathlib.Path`, `tempfile`
   - **Third-party:** `click.testing.CliRunner`, `pytest`
