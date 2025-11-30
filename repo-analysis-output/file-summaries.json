@@ -356,10 +356,10 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 48270,
-        "loc": 827,
+        "size_bytes": 63149,
+        "loc": 1077,
         "todo_count": 0,
-        "declaration_count": 14
+        "declaration_count": 18
       },
       "structure": {
         "declarations": [
@@ -376,7 +376,11 @@
           "class TestDetectHeaderInContent",
           "class TestRemoveHeaderFromContent",
           "class TestUpgradeHeaderInContent",
-          "class TestUpgradeHeaderInFile"
+          "class TestUpgradeHeaderInFile",
+          "class TestMultiLanguageCommentStyles",
+          "class TestShebangPreservationAllLanguages",
+          "class TestV1VsV2HeaderDetection",
+          "class TestLineEndingHandling"
         ]
       },
       "dependencies": {
@@ -401,16 +405,18 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 9858,
-        "loc": 162,
+        "size_bytes": 16717,
+        "loc": 280,
         "todo_count": 0,
-        "declaration_count": 3
+        "declaration_count": 5
       },
       "structure": {
         "declarations": [
           "class TestCheckResult",
           "class TestCheckFileHeader",
-          "class TestCheckHeaders"
+          "class TestCheckHeaders",
+          "class TestCheckMultiLanguage",
+          "class TestCheckWithShebang"
         ]
       },
       "dependencies": {
@@ -434,17 +440,19 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 18737,
-        "loc": 334,
+        "size_bytes": 33397,
+        "loc": 572,
         "todo_count": 0,
-        "declaration_count": 4
+        "declaration_count": 6
       },
       "structure": {
         "declarations": [
           "class TestCLI",
           "class TestApplyCommand",
           "class TestCheckCommand",
-          "class TestUpgradeCommand"
+          "class TestUpgradeCommand",
+          "class TestCheckCommandExtended",
+          "class TestApplyCommandExtended"
         ]
       },
       "dependencies": {
@@ -551,17 +559,19 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 11756,
-        "loc": 182,
+        "size_bytes": 18297,
+        "loc": 290,
         "todo_count": 0,
-        "declaration_count": 4
+        "declaration_count": 6
       },
       "structure": {
         "declarations": [
           "class TestFormatFileList",
           "class TestGenerateJsonReport",
           "class TestGenerateMarkdownReport",
-          "class TestGenerateReports"
+          "class TestGenerateReports",
+          "class TestUpgradeReports",
+          "class TestReportFileListFormatting"
         ]
       },
       "dependencies": {
@@ -587,17 +597,18 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 24836,
-        "loc": 422,
+        "size_bytes": 27771,
+        "loc": 476,
         "todo_count": 0,
-        "declaration_count": 4
+        "declaration_count": 5
       },
       "structure": {
         "declarations": [
           "class TestScanResult",
           "class TestIsBinaryFile",
           "class TestMatchesExcludePattern",
-          "class TestScanRepository"
+          "class TestScanRepository",
+          "class TestAllSupportedLanguages"
         ]
       },
       "dependencies": {

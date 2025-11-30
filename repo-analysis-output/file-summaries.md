@@ -175,10 +175,10 @@ Total files: 16
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 47.14 KB  
-**LOC:** 827  
+**Size:** 61.67 KB  
+**LOC:** 1077  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 14  
+**Declarations:** 18  
 **Top-level declarations:**
   - class TestApplyResult
   - class TestUtilityFunctions
@@ -190,7 +190,7 @@ Total files: 16
   - class TestUpgradeResult
   - class TestStripCommentMarkers
   - class TestNormalizeBodyForComparison
-  - ... and 4 more
+  - ... and 8 more
 **External Dependencies:**
   - **Stdlib:** `codecs`, `os`, `pathlib.Path`
   - **Third-party:** `pytest`
@@ -199,14 +199,16 @@ Total files: 16
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 9.63 KB  
-**LOC:** 162  
+**Size:** 16.33 KB  
+**LOC:** 280  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 3  
+**Declarations:** 5  
 **Top-level declarations:**
   - class TestCheckResult
   - class TestCheckFileHeader
   - class TestCheckHeaders
+  - class TestCheckMultiLanguage
+  - class TestCheckWithShebang
 **External Dependencies:**
   - **Stdlib:** `pathlib.Path`, `tempfile`
   - **Third-party:** `pytest`
@@ -215,15 +217,17 @@ Total files: 16
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 18.30 KB  
-**LOC:** 334  
+**Size:** 32.61 KB  
+**LOC:** 572  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 4  
+**Declarations:** 6  
 **Top-level declarations:**
   - class TestCLI
   - class TestApplyCommand
   - class TestCheckCommand
   - class TestUpgradeCommand
+  - class TestCheckCommandExtended
+  - class TestApplyCommandExtended
 **External Dependencies:**
   - **Stdlib:** `json`, `os`, `pathlib.Path`, `tempfile`
   - **Third-party:** `click.testing.CliRunner`, `pytest`
@@ -278,15 +282,17 @@ Total files: 16
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 11.48 KB  
-**LOC:** 182  
+**Size:** 17.87 KB  
+**LOC:** 290  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 4  
+**Declarations:** 6  
 **Top-level declarations:**
   - class TestFormatFileList
   - class TestGenerateJsonReport
   - class TestGenerateMarkdownReport
   - class TestGenerateReports
+  - class TestUpgradeReports
+  - class TestReportFileListFormatting
 **External Dependencies:**
   - **Stdlib:** `json`, `os`, `pathlib.Path`, `tempfile`
   - **Third-party:** `pytest`
@@ -295,15 +301,16 @@ Total files: 16
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 24.25 KB  
-**LOC:** 422  
+**Size:** 27.12 KB  
+**LOC:** 476  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 4  
+**Declarations:** 5  
 **Top-level declarations:**
   - class TestScanResult
   - class TestIsBinaryFile
   - class TestMatchesExcludePattern
   - class TestScanRepository
+  - class TestAllSupportedLanguages
 **External Dependencies:**
   - **Stdlib:** `os`, `pathlib.Path`
   - **Third-party:** `pytest`
