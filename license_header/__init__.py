@@ -20,4 +20,4 @@
 License Header CLI - Deterministic license header enforcement for source files.
 """
 
-__version__ = "0.2.0"
+__version__ = "1.0.0"

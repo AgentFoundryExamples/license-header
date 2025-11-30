@@ -2,10 +2,40 @@
 
 A deterministic license header enforcement tool for source files. This CLI tool helps maintain consistent license headers across your codebase by applying and validating headers in source files.
 
+## ⚠️ Version 1.0.0 Release Notes
+
+### V1 Header Format End-of-Life
+
+**Important:** V1 headers (with embedded comment markers) are **no longer supported** for regular operations as of version 1.0.0. All users must migrate to V2 format before using new features.
+
+#### What You Need to Know
+
+- **V1 headers are deprecated**: The `header_version: "v1"` configuration is only allowed in `upgrade` mode
+- **V2 is required**: All `apply` and `check` operations require V2 headers (raw license text without comment markers)
+- **No retroactive V1 support**: Files with V1 headers will not be automatically detected or updated without using the upgrade command
+
+#### Before Using V2 Features
+
+**You must run the upgrade command to migrate existing V1 headers:**
+
+```bash
+# 1. Preview the upgrade (ALWAYS run this first)
+license-header upgrade --from-header OLD_HEADER.txt --to-header LICENSE_HEADER --dry-run
+
+# 2. Perform the upgrade
+license-header upgrade --from-header OLD_HEADER.txt --to-header LICENSE_HEADER
+
+# 3. Verify results
+license-header check
+```
+
+See the [Upgrade License Headers](#upgrade-license-headers) section for detailed migration instructions.
+
 ## Features
 
 - **Apply Mode**: Automatically add or update license headers in source files
 - **Check Mode**: Verify that all source files have correct license headers
+- **Upgrade Mode**: Migrate from V1 headers (with comment markers) to V2 format
 - **Multi-Language Support**: Automatically wraps headers with appropriate comment syntax for Python, C, C++, C#, TypeScript, JavaScript, Java, and Rust
 - **Comment-Agnostic Headers**: Store raw license text in header files; comment wrapping is handled automatically
 - **Deterministic**: Consistent, reproducible results across different environments
