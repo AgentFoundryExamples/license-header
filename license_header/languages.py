@@ -312,7 +312,7 @@ def wrap_header_with_comments(
         return header_text.rstrip() + '\n' if header_text else ''
     
     # Normalize header text - ensure no trailing whitespace but preserve content
-    lines = header_text.rstrip().split('\n')
+    lines = header_text.rstrip().splitlines()
     
     if use_block_comments and comment_style.supports_block_comments():
         # Use block comment style
@@ -361,7 +361,7 @@ def unwrap_header_comments(
     Returns:
         Raw header text without comment markers
     """
-    lines = wrapped_header.rstrip().split('\n')
+    lines = wrapped_header.rstrip().splitlines()
     result_lines = []
     in_block = False
     
