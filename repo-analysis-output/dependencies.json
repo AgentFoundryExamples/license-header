@@ -77,6 +77,22 @@
       }
     },
     {
+      "id": "license_header/languages.py",
+      "path": "license_header/languages.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "dataclasses.dataclass",
+          "dataclasses.field",
+          "logging",
+          "typing.Dict",
+          "typing.List",
+          "typing.Optional"
+        ],
+        "third-party": []
+      }
+    },
+    {
       "id": "license_header/reports.py",
       "path": "license_header/reports.py",
       "type": "file",
@@ -188,6 +204,19 @@
       }
     },
     {
+      "id": "tests/test_languages.py",
+      "path": "tests/test_languages.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "pathlib.Path"
+        ],
+        "third-party": [
+          "pytest"
+        ]
+      }
+    },
+    {
       "id": "tests/test_reports.py",
       "path": "tests/test_reports.py",
       "type": "file",
@@ -219,6 +248,10 @@
     }
   ],
   "edges": [
+    {
+      "source": "license_header/apply.py",
+      "target": "license_header/languages.py"
+    },
     {
       "source": "license_header/apply.py",
       "target": "license_header/utils.py"
@@ -256,6 +289,18 @@
       "target": "license_header/config.py"
     },
     {
+      "source": "tests/test_languages.py",
+      "target": "license_header/languages.py"
+    },
+    {
+      "source": "tests/test_languages.py",
+      "target": "license_header/apply.py"
+    },
+    {
+      "source": "tests/test_languages.py",
+      "target": "license_header/config.py"
+    },
+    {
       "source": "tests/test_reports.py",
       "target": "license_header/reports.py"
     },
@@ -285,6 +330,7 @@
       "pathlib.Path",
       "sys",
       "tempfile",
+      "typing.Dict",
       "typing.List",
       "typing.Optional",
       "typing.Tuple",
@@ -296,7 +342,7 @@
       "click.testing.CliRunner",
       "pytest"
     ],
-    "stdlib_count": 15,
+    "stdlib_count": 16,
     "third-party_count": 4
   }
 }

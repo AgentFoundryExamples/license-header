@@ -62,6 +62,10 @@
         },
         {
           "type": "file",
+          "name": "languages.py"
+        },
+        {
+          "type": "file",
           "name": "reports.py"
         },
         {
@@ -80,7 +84,31 @@
       "children": [
         {
           "type": "file",
+          "name": "dependencies.json"
+        },
+        {
+          "type": "file",
+          "name": "dependencies.md"
+        },
+        {
+          "type": "file",
+          "name": "file-summaries.json"
+        },
+        {
+          "type": "file",
+          "name": "file-summaries.md"
+        },
+        {
+          "type": "file",
           "name": "SUMMARY.md"
+        },
+        {
+          "type": "file",
+          "name": "tree.json"
+        },
+        {
+          "type": "file",
+          "name": "tree.md"
         }
       ]
     },
@@ -103,6 +131,10 @@
         {
           "type": "file",
           "name": "test_config.py"
+        },
+        {
+          "type": "file",
+          "name": "test_languages.py"
         },
         {
           "type": "file",

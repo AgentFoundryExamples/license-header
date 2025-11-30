@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "total_files": 14,
+  "total_files": 16,
   "files": [
     {
       "schema_version": "2.0",
@@ -32,10 +32,10 @@
       "role": "implementation",
       "role_justification": "general implementation file (default classification)",
       "metrics": {
-        "size_bytes": 12232,
-        "loc": 235,
+        "size_bytes": 15186,
+        "loc": 297,
         "todo_count": 0,
-        "declaration_count": 8
+        "declaration_count": 9
       },
       "structure": {
         "declarations": [
@@ -43,6 +43,7 @@
           "function normalize_header",
           "function detect_newline_style",
           "function convert_newlines",
+          "function prepare_header_for_file",
           "function has_header",
           "function insert_header",
           "function apply_header_to_file",
@@ -74,8 +75,8 @@
       "role": "implementation",
       "role_justification": "general implementation file (default classification)",
       "metrics": {
-        "size_bytes": 5269,
-        "loc": 94,
+        "size_bytes": 6152,
+        "loc": 108,
         "todo_count": 0,
         "declaration_count": 3
       },
@@ -108,8 +109,8 @@
       "role": "cli",
       "role_justification": "CLI-related name 'cli'",
       "metrics": {
-        "size_bytes": 12316,
-        "loc": 196,
+        "size_bytes": 14734,
+        "loc": 225,
         "todo_count": 0,
         "declaration_count": 4
       },
@@ -143,8 +144,8 @@
       "role": "configuration",
       "role_justification": "configuration file name 'config'",
       "metrics": {
-        "size_bytes": 12031,
-        "loc": 236,
+        "size_bytes": 13374,
+        "loc": 256,
         "todo_count": 0,
         "declaration_count": 9
       },
@@ -177,6 +178,47 @@
           "third-party": [
             "click"
           ]
+        }
+      }
+    },
+    {
+      "schema_version": "2.0",
+      "path": "license_header/languages.py",
+      "language": "Python",
+      "role": "implementation",
+      "role_justification": "general implementation file (default classification)",
+      "metrics": {
+        "size_bytes": 16292,
+        "loc": 351,
+        "todo_count": 0,
+        "declaration_count": 9
+      },
+      "structure": {
+        "declarations": [
+          "class CommentStyle",
+          "class LanguageInfo",
+          "function build_extension_map",
+          "function get_language_for_extension",
+          "function get_comment_style_for_extension",
+          "function is_header_already_wrapped",
+          "function wrap_header_with_comments",
+          "function unwrap_header_comments",
+          "function detect_header_comment_style"
+        ]
+      },
+      "dependencies": {
+        "imports": [],
+        "exports": [],
+        "external": {
+          "stdlib": [
+            "dataclasses.dataclass",
+            "dataclasses.field",
+            "logging",
+            "typing.Dict",
+            "typing.List",
+            "typing.Optional"
+          ],
+          "third-party": []
         }
       }
     },
@@ -433,6 +475,44 @@
           ],
           "third-party": [
             "click.ClickException",
+            "pytest"
+          ]
+        }
+      }
+    },
+    {
+      "schema_version": "2.0",
+      "path": "tests/test_languages.py",
+      "language": "Python",
+      "role": "test",
+      "role_justification": "filename starts with 'test_'",
+      "metrics": {
+        "size_bytes": 22060,
+        "loc": 415,
+        "todo_count": 0,
+        "declaration_count": 9
+      },
+      "structure": {
+        "declarations": [
+          "class TestCommentStyle",
+          "class TestDefaultLanguages",
+          "class TestExtensionMapping",
+          "class TestGetCommentStyle",
+          "class TestIsHeaderAlreadyWrapped",
+          "class TestWrapHeaderWithComments",
+          "class TestUnwrapHeaderComments",
+          "class TestPrepareHeaderForFile",
+          "class TestMultiLanguageApply"
+        ]
+      },
+      "dependencies": {
+        "imports": [],
+        "exports": [],
+        "external": {
+          "stdlib": [
+            "pathlib.Path"
+          ],
+          "third-party": [
             "pytest"
           ]
         }

@@ -4,7 +4,7 @@ Heuristic summaries of source files based on filenames, extensions, and paths.
 
 Schema Version: 2.0
 
-Total files: 14
+Total files: 16
 
 ## license_header/__init__.py
 **Language:** Python  
@@ -18,15 +18,16 @@ Total files: 14
 **Language:** Python  
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
-**Size:** 11.95 KB  
-**LOC:** 235  
+**Size:** 14.83 KB  
+**LOC:** 297  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 8  
+**Declarations:** 9  
 **Top-level declarations:**
   - class ApplyResult
   - function normalize_header
   - function detect_newline_style
   - function convert_newlines
+  - function prepare_header_for_file
   - function has_header
   - function insert_header
   - function apply_header_to_file
@@ -39,8 +40,8 @@ Total files: 14
 **Language:** Python  
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
-**Size:** 5.15 KB  
-**LOC:** 94  
+**Size:** 6.01 KB  
+**LOC:** 108  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 3  
 **Top-level declarations:**
@@ -54,8 +55,8 @@ Total files: 14
 **Language:** Python  
 **Role:** cli  
 **Role Justification:** CLI-related name 'cli'  
-**Size:** 12.03 KB  
-**LOC:** 196  
+**Size:** 14.39 KB  
+**LOC:** 225  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 4  
 **Top-level declarations:**
@@ -71,8 +72,8 @@ Total files: 14
 **Language:** Python  
 **Role:** configuration  
 **Role Justification:** configuration file name 'config'  
-**Size:** 11.75 KB  
-**LOC:** 236  
+**Size:** 13.06 KB  
+**LOC:** 256  
 **TODOs/FIXMEs:** 0  
 **Declarations:** 9  
 **Top-level declarations:**
@@ -89,6 +90,28 @@ Total files: 14
   - **Stdlib:** `dataclasses.dataclass`, `dataclasses.field`, `json`, `logging`, `pathlib.Path`
     _(and 2 more)_
   - **Third-party:** `click`
+
+## license_header/languages.py
+**Language:** Python  
+**Role:** implementation  
+**Role Justification:** general implementation file (default classification)  
+**Size:** 15.91 KB  
+**LOC:** 351  
+**TODOs/FIXMEs:** 0  
+**Declarations:** 9  
+**Top-level declarations:**
+  - class CommentStyle
+  - class LanguageInfo
+  - function build_extension_map
+  - function get_language_for_extension
+  - function get_comment_style_for_extension
+  - function is_header_already_wrapped
+  - function wrap_header_with_comments
+  - function unwrap_header_comments
+  - function detect_header_comment_style
+**External Dependencies:**
+  - **Stdlib:** `dataclasses.dataclass`, `dataclasses.field`, `logging`, `typing.Dict`, `typing.List`
+    _(and 1 more)_
 
 ## license_header/reports.py
 **Language:** Python  
@@ -214,6 +237,28 @@ Total files: 14
 **External Dependencies:**
   - **Stdlib:** `json`, `pathlib.Path`
   - **Third-party:** `click.ClickException`, `pytest`
+
+## tests/test_languages.py
+**Language:** Python  
+**Role:** test  
+**Role Justification:** filename starts with 'test_'  
+**Size:** 21.54 KB  
+**LOC:** 415  
+**TODOs/FIXMEs:** 0  
+**Declarations:** 9  
+**Top-level declarations:**
+  - class TestCommentStyle
+  - class TestDefaultLanguages
+  - class TestExtensionMapping
+  - class TestGetCommentStyle
+  - class TestIsHeaderAlreadyWrapped
+  - class TestWrapHeaderWithComments
+  - class TestUnwrapHeaderComments
+  - class TestPrepareHeaderForFile
+  - class TestMultiLanguageApply
+**External Dependencies:**
+  - **Stdlib:** `pathlib.Path`
+  - **Third-party:** `pytest`
 
 ## tests/test_reports.py
 **Language:** Python  

@@ -13,16 +13,24 @@
   ├── check.py
   ├── cli.py
   ├── config.py
+  ├── languages.py
   ├── reports.py
   ├── scanner.py
   └── utils.py
 ├── repo-analysis-output
-  └── SUMMARY.md
+  ├── dependencies.json
+  ├── dependencies.md
+  ├── file-summaries.json
+  ├── file-summaries.md
+  ├── SUMMARY.md
+  ├── tree.json
+  └── tree.md
 ├── tests
   ├── test_apply.py
   ├── test_check.py
   ├── test_cli.py
   ├── test_config.py
+  ├── test_languages.py
   ├── test_reports.py
   └── test_scanner.py
 ├── .gitignore
