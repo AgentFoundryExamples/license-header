@@ -218,6 +218,31 @@ class TestIsHeaderAlreadyWrapped:
     def test_empty_string(self):
         """Test empty string."""
         assert not is_header_already_wrapped('')
+    
+    def test_inconsistent_prefixes_not_detected(self):
+        """Test that headers with inconsistent prefixes are not detected as wrapped."""
+        # First line looks like a comment, but subsequent lines don't match
+        header = "# Copyright 2025\nThis is raw text\nMore raw text\n"
+        assert not is_header_already_wrapped(header)
+    
+    def test_consistent_hash_comments(self):
+        """Test that consistent hash comments are detected."""
+        header = "# Copyright 2025\n# Licensed under MIT\n# All rights reserved\n"
+        assert is_header_already_wrapped(header)
+    
+    def test_consistent_slash_comments(self):
+        """Test that consistent slash comments are detected."""
+        header = "// Copyright 2025\n// Licensed under MIT\n// All rights reserved\n"
+        assert is_header_already_wrapped(header)
+    
+    def test_block_comment_style(self):
+        """Test that block comment style is detected."""
+        header = "/*\n * Copyright 2025\n * Licensed under MIT\n */"
+        assert is_header_already_wrapped(header)
+    
+    def test_whitespace_only_header(self):
+        """Test that whitespace-only header is not detected as wrapped."""
+        assert not is_header_already_wrapped('   \n   \n   ')
 
 
 class TestWrapHeaderWithComments:
@@ -265,6 +290,12 @@ class TestWrapHeaderWithComments:
         assert lines[0] == '# Line 1'
         assert lines[1] == '#'  # Empty line gets just the prefix
         assert lines[2] == '# Line 2'
+    
+    def test_null_comment_style_raises_error(self):
+        """Test that None comment_style raises ValueError."""
+        header = "Copyright 2025\n"
+        with pytest.raises(ValueError, match="comment_style parameter cannot be None"):
+            wrap_header_with_comments(header, None)
 
 
 class TestUnwrapHeaderComments:

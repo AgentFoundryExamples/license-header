@@ -253,7 +253,7 @@ def is_header_already_wrapped(header_text: str) -> bool:
     """
     Detect if a header already has comment markers.
     
-    This checks if the header starts with common comment prefixes,
+    This checks if all non-empty lines start with a consistent comment prefix,
     which indicates it was already wrapped and should not be wrapped again.
     
     Args:
@@ -265,26 +265,52 @@ def is_header_already_wrapped(header_text: str) -> bool:
     if not header_text:
         return False
     
-    # Find first non-empty line using splitlines
-    lines = header_text.splitlines()
-    first_line = None
+    lines = header_text.strip().splitlines()
+    if not lines:
+        return False
+    
+    # Find first non-empty line to determine the potential comment prefix
+    first_line_stripped = ''
     for line in lines:
-        stripped = line.strip()
-        if stripped:
-            first_line = stripped
+        if line.strip():
+            first_line_stripped = line.lstrip()
             break
     
-    if not first_line:
-        return False
+    if not first_line_stripped:
+        return False  # Header is all whitespace
     
     # Common comment prefixes
     comment_prefixes = ['#', '//', '/*', '*', '<!--', '"""', "'''", ';', '--']
     
+    # Find which prefix the first line uses
+    detected_prefix = None
     for prefix in comment_prefixes:
-        if first_line.startswith(prefix):
-            return True
+        if first_line_stripped.startswith(prefix):
+            detected_prefix = prefix
+            break
     
-    return False
+    if detected_prefix is None:
+        return False  # First line doesn't start with a comment prefix
+    
+    # Check that all non-empty lines start with the same prefix
+    for line in lines:
+        stripped = line.strip()
+        if stripped:
+            # For block comment style, allow lines starting with * or the detected prefix
+            if detected_prefix == '/*':
+                # Block comment start - check if other lines start with * or */
+                if not (stripped.startswith('*') or stripped.startswith('/*')):
+                    return False
+            elif detected_prefix == '*':
+                # Inside block comment - allow * and */
+                if not stripped.startswith('*'):
+                    return False
+            else:
+                # Line comment - all lines must start with same prefix
+                if not stripped.startswith(detected_prefix):
+                    return False
+    
+    return True
 
 
 def wrap_header_with_comments(
@@ -305,7 +331,14 @@ def wrap_header_with_comments(
         
     Returns:
         Header text wrapped with appropriate comment syntax
+        
+    Raises:
+        ValueError: If comment_style is None
     """
+    # Validate comment_style parameter
+    if comment_style is None:
+        raise ValueError("comment_style parameter cannot be None")
+    
     # Check if header already has comment markers
     if is_header_already_wrapped(header_text):
         logger.debug("Header already has comment markers, skipping wrapping")
@@ -336,6 +369,7 @@ def wrap_header_with_comments(
             else:
                 # Empty lines just get the comment prefix (stripped of trailing space)
                 result_lines.append(comment_style.line_prefix.rstrip())
+        return '\n'.join(result_lines) + '\n'
         return '\n'.join(result_lines) + '\n'
     
     else:
