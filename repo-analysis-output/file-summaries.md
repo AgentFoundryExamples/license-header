@@ -75,10 +75,10 @@ Total files: 16
 **Language:** Python  
 **Role:** configuration  
 **Role Justification:** configuration file name 'config'  
-**Size:** 13.06 KB  
-**LOC:** 256  
+**Size:** 18.79 KB  
+**LOC:** 363  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 9  
+**Declarations:** 12  
 **Top-level declarations:**
   - class Config
   - function find_repo_root
@@ -87,11 +87,13 @@ Total files: 16
   - function load_header_content
   - function validate_extensions
   - function validate_exclude_patterns
-  - function merge_config
-  - function get_header_content
+  - function validate_header_version
+  - function validate_upgrade_config
+  - function validate_language_comment_overrides
+  - ... and 2 more
 **External Dependencies:**
   - **Stdlib:** `dataclasses.dataclass`, `dataclasses.field`, `json`, `logging`, `pathlib.Path`
-    _(and 2 more)_
+    _(and 3 more)_
   - **Third-party:** `click`
 
 ## license_header/languages.py
@@ -230,10 +232,10 @@ Total files: 16
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
-**Size:** 12.98 KB  
-**LOC:** 241  
+**Size:** 24.30 KB  
+**LOC:** 470  
 **TODOs/FIXMEs:** 0  
-**Declarations:** 7  
+**Declarations:** 11  
 **Top-level declarations:**
   - class TestConfig
   - class TestFindRepoRoot
@@ -242,6 +244,10 @@ Total files: 16
   - class TestLoadHeaderContent
   - class TestMergeConfig
   - class TestGetHeaderContent
+  - class TestHeaderVersionValidation
+  - class TestLanguageCommentOverrides
+  - class TestUpgradeConfig
+  - ... and 1 more
 **External Dependencies:**
   - **Stdlib:** `json`, `pathlib.Path`
   - **Third-party:** `click.ClickException`, `pytest`

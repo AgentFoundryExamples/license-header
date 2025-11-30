@@ -154,10 +154,10 @@
       "role": "configuration",
       "role_justification": "configuration file name 'config'",
       "metrics": {
-        "size_bytes": 13374,
-        "loc": 256,
+        "size_bytes": 19241,
+        "loc": 363,
         "todo_count": 0,
-        "declaration_count": 9
+        "declaration_count": 12
       },
       "structure": {
         "declarations": [
@@ -168,6 +168,9 @@
           "function load_header_content",
           "function validate_extensions",
           "function validate_exclude_patterns",
+          "function validate_header_version",
+          "function validate_upgrade_config",
+          "function validate_language_comment_overrides",
           "function merge_config",
           "function get_header_content"
         ]
@@ -182,6 +185,7 @@
             "json",
             "logging",
             "pathlib.Path",
+            "typing.Dict",
             "typing.List",
             "typing.Optional"
           ],
@@ -467,10 +471,10 @@
       "role": "test",
       "role_justification": "filename starts with 'test_'",
       "metrics": {
-        "size_bytes": 13293,
-        "loc": 241,
+        "size_bytes": 24887,
+        "loc": 470,
         "todo_count": 0,
-        "declaration_count": 7
+        "declaration_count": 11
       },
       "structure": {
         "declarations": [
@@ -480,7 +484,11 @@
           "class TestValidatePathInRepo",
           "class TestLoadHeaderContent",
           "class TestMergeConfig",
-          "class TestGetHeaderContent"
+          "class TestGetHeaderContent",
+          "class TestHeaderVersionValidation",
+          "class TestLanguageCommentOverrides",
+          "class TestUpgradeConfig",
+          "class TestConfigNewFields"
         ]
       },
       "dependencies": {

@@ -33,6 +33,7 @@
   ├── test_languages.py
   ├── test_reports.py
   └── test_scanner.py
+├── .env.example
 ├── .gitignore
 ├── CHANGELOG.md
 ├── LICENSE

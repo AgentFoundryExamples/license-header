@@ -70,6 +70,7 @@
           "json",
           "logging",
           "pathlib.Path",
+          "typing.Dict",
           "typing.List",
           "typing.Optional"
         ],
