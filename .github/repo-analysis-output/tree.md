@@ -1,0 +1,36 @@
+# license-header
+
+├── .github
+  ├── af-config
+    ├── license-header.config.json
+    ├── LICENSE_HEADER
+    └── repo-analyzer.config.json
+  ├── repo-analysis-output
+    └── SUMMARY.md
+  └── workflows
+    └── af_maintenance.yml
+├── license_header
+  ├── __init__.py
+  ├── apply.py
+  ├── check.py
+  ├── cli.py
+  ├── config.py
+  ├── languages.py
+  ├── reports.py
+  ├── scanner.py
+  └── utils.py
+├── tests
+  ├── test_apply.py
+  ├── test_check.py
+  ├── test_cli.py
+  ├── test_config.py
+  ├── test_languages.py
+  ├── test_reports.py
+  └── test_scanner.py
+├── .env.example
+├── .gitignore
+├── CHANGELOG.md
+├── LICENSE
+├── license-header.config.json
+├── pyproject.toml
+└── README.md
