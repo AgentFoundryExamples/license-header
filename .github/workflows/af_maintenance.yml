@@ -33,12 +33,20 @@ jobs:
         run: |
           pip install "git+https://github.com/AgentFoundryExamples/license-header.git@main"
 
+      - name: Install tree sitter
+        run: |
+          pip install tree-sitter
+
+      - name: Install Language specific tree sitters
+        run: |
+          pip install tree-sitter-rust tree-sitter-c tree-sitter-cpp
+
       - name: Write repo-analyzer config
         run: |
           mkdir -p .github/af-config
           cat << 'EOF' > .github/af-config/repo-analyzer.config.json
           {
-            "output_dir": "repo-analysis-output",
+            "output_dir": ".github/repo-analysis-output",
             "dry_run": false,
             "tree_config": {
               "max_depth": null,
@@ -54,23 +62,71 @@ jobs:
             "file_summary_config": {
               "max_file_size_kb": 1024,
               "include_patterns": [
-                "*.py"
+                "*.py",
+                "*.js",
+                "*.ts",
+                "*.java",
+                "*.go",
+                "*.rs",
+                "*.c",
+                "*.cpp",
+                "*.cc",
+                "*.cxx",
+                "*.h",
+                "*.hpp",
+                "*.hh",
+                "*.hxx",
+                "*.s",
+                "*.S",
+                "*.asm",
+                "*.sx",
+                "*.pl",
+                "*.pm",
+                "*.perl"
               ],
-              "detail_level": "detailed",
-              "include_legacy_summary": false
+              "detail_level": "standard",
+              "include_legacy_summary": true
             },
             "dependency_config": {
               "scan_package_files": true,
               "package_files": [
+                "package.json",
                 "requirements.txt",
                 "Pipfile",
                 "pyproject.toml",
-                "setup.cfg",
-                "setup.py",
-                "package.json",
                 "go.mod",
                 "Cargo.toml"
               ]
+            },
+            "language_config": {
+              "enabled_languages": null,
+              "disabled_languages": [],
+              "language_overrides": {}
+            },
+            "parser_config": {
+              "enable_structured_parsers": true,
+              "enable_parser_cache": true,
+              "parsers": {
+                "tree_sitter": {
+                  "enabled": true,
+                  "graceful_degradation": true
+                },
+                "libclang": {
+                  "enabled": true,
+                  "graceful_degradation": true
+                }
+              },
+              "language_parser_preferences": {
+                "C": ["libclang", "tree_sitter", "regex"],
+                "C++": ["libclang", "tree_sitter", "regex"],
+                "Rust": ["tree_sitter", "regex"],
+                "Perl": ["tree_sitter", "regex"],
+                "ASM": ["regex"]
+              },
+              "performance": {
+                "max_file_size_for_structured_parsing_kb": 512,
+                "max_parse_time_seconds": 5.0
+              }
             }
           }
           EOF
@@ -79,24 +135,19 @@ jobs:
         run: |
           mkdir -p .github/af-config
           cat << 'EOF' > .github/af-config/LICENSE_HEADER
-          # ============================================================
-          # SPDX-License-Identifier: GPL-3.0-or-later
-          # This program was generated as part of the AgentFoundry project.
-          # Copyright (C) 2025  John Brosnihan
-          #
-          # This program is free software: you can redistribute it and/or modify
-          # it under the terms of the GNU General Public License as published by
-          # the Free Software Foundation, either version 3 of the License, or
-          # (at your option) any later version.
-          #
-          # This program is distributed in the hope that it will be useful,
-          # but WITHOUT ANY WARRANTY; without even the implied warranty of
-          # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-          # GNU General Public License for more details.
-          #
-          # You should have received a copy of the GNU General Public License
-          # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-          # ============================================================
+          Copyright 2025 John Brosnihan
+
+          Licensed under the Apache License, Version 2.0 (the "License");
+          you may not use this file except in compliance with the License.
+          You may obtain a copy of the License at
+          
+              http://www.apache.org/licenses/LICENSE-2.0
+          
+          Unless required by applicable law or agreed to in writing, software
+          distributed under the License is distributed on an "AS IS" BASIS,
+          WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+          See the License for the specific language governing permissions and
+          limitations under the License. 
           EOF
 
       - name: Write license-header config
@@ -105,21 +156,13 @@ jobs:
           cat << 'EOF' > .github/af-config/license-header.config.json
           {
             "header_file": ".github/af-config/LICENSE_HEADER",
-            "include_extensions": [
-              ".py"
-            ],
+            "include_extensions": [".py", ".js", ".ts", ".java", ".c", ".cpp", ".h", ".cs", ".rs"],
             "exclude_paths": [
               ".git",
-              "__pycache__",
-              "node_modules",
-              "venv",
-              ".venv",
-              "env",
-              "dist",
-              "build",
-              "repo-analysis-output",
-              ".github/af-config"
+              "node_modules", ".git", "__pycache__", "venv", "env", ".venv", "dist", "build",
+              "repo-analysis-output"
             ],
+
             "output_dir": null
           }
           EOF
